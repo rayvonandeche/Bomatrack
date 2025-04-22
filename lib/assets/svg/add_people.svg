@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="9.784 0 256.904 159.551" width="256.904px" height="159.551px">
+  <ellipse style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255);" cx="166.77" cy="50" rx="50" ry="50"/>
+  <path style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255);" d="M 167.1 99.557 C 167.1 99.557 265.606 100 266.688 149.807 C 216.77 149.807 116.77 150.721 67.056 150.721 C 66.976 108.694 133.295 100 167.1 99.557 Z"/>
+  <ellipse style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255); stroke-width: 4px;" cx="130.224" cy="50" rx="50" ry="50"/>
+  <path style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255); stroke-width: 4px;" d="M 130.554 99.557 C 130.554 99.557 229.06 100 230.142 149.807 C 180.224 149.807 80.224 150.721 30.51 150.721 C 30.43 108.694 96.749 100 130.554 99.557 Z"/>
+  <ellipse style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255); stroke-width: 4px;" cx="67.692" cy="101.643" rx="57.908" ry="57.908"/>
+  <rect x="58.206" y="52.566" width="18.546" height="98.155" style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255); stroke-width: 4px;"/>
+  <rect x="163.454" y="252.566" width="18.546" height="98.155" style="fill: rgb(216, 216, 216); stroke: rgb(255, 255, 255); stroke-width: 4px; transform-origin: 172.727px 301.643px;" transform="matrix(0, 1, -1, 0, -105.03466796875, -199.999771118164)"/>
+  <rect x="60.055" y="84.891" width="14.784" height="31.252" style="fill: rgb(216, 216, 216); stroke: rgba(255, 255, 255, 0);"/>
+</svg>
