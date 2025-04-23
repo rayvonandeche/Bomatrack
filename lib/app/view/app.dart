@@ -1,14 +1,13 @@
 import 'package:bomatrack/app/app.dart';
-import 'package:bomatrack/authscreens/auth_page.dart';
-import 'package:bomatrack/authscreens/complete_profile/view/complete_profile.dart';
-import 'package:bomatrack/authscreens/verify/verify.dart';
-import 'package:bomatrack/home/screens/home_screen.dart';
+import 'package:bomatrack/core/theme/theme.dart';
+import 'package:bomatrack/features/auth/presentation/auth_page.dart';
+import 'package:bomatrack/features/auth/presentation/complete_profile/view/complete_profile.dart';
+import 'package:bomatrack/features/auth/presentation/verify/verify.dart';
+import 'package:bomatrack/features/home/presentation/home.dart';
 import 'package:bomatrack/services/services.dart';
-import 'package:bomatrack/utils/utils.dart';
 import 'package:flow_builder/flow_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class App extends StatelessWidget {
   const App({
@@ -37,24 +36,10 @@ class AppView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Bomatrack Auth',
-        theme: ThemeData.from(
-                colorScheme: ColorScheme.fromSeed(
-                    seedColor: Color.fromARGB(255, 0, 104, 136)))
-            .copyWith(
-          textTheme: GoogleFonts.ralewayTextTheme(
-            ThemeData.light().textTheme,
-          ),
-        ),
-        darkTheme: ThemeData.from(
-                colorScheme: ColorScheme.fromSeed(
-                    seedColor: Color.fromARGB(255, 0, 104, 136),
-                    brightness: Brightness.dark))
-            .copyWith(
-          textTheme: GoogleFonts.ralewayTextTheme(
-            ThemeData.dark().textTheme,
-          ),
-        ),
+        title: 'Bomatrack',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system, // Respects device theme settings
         home: FlowBuilder<AppStatus>(
           state: context.select((AppBloc bloc) => bloc.state.status),
           onGeneratePages: onGeneratePages,
