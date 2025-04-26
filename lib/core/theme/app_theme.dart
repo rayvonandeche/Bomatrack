@@ -35,6 +35,27 @@ class AppTheme {
   static const Color borderLight = Color(0xFFE0E0E0);
   static const Color borderDark = Color(0xFF333333);
 
+  // Standard Font Sizes (Material Design 3 Typography Scale)
+  static const double displayLarge = 57.0;    // Display Large
+  static const double displayMedium = 45.0;   // Display Medium
+  static const double displaySmall = 36.0;    // Display Small
+  
+  static const double headlineLarge = 32.0;   // Headline Large
+  static const double headlineMedium = 28.0;  // Headline Medium
+  static const double headlineSmall = 24.0;   // Headline Small
+  
+  static const double titleLarge = 22.0;      // Title Large
+  static const double titleMedium = 16.0;     // Title Medium
+  static const double titleSmall = 14.0;      // Title Small
+  
+  static const double bodyLarge = 16.0;       // Body Large
+  static const double bodyMedium = 14.0;      // Body Medium
+  static const double bodySmall = 12.0;       // Body Small
+  
+  static const double labelLarge = 14.0;      // Label Large
+  static const double labelMedium = 12.0;     // Label Medium
+  static const double labelSmall = 11.0;      // Label Small
+
   // Get light theme
   static ThemeData get lightTheme {
     final ColorScheme colorScheme = ColorScheme.fromSeed(
@@ -105,15 +126,13 @@ class AppTheme {
 
   // Base theme settings shared between light and dark themes
   static ThemeData _baseTheme(ColorScheme colorScheme) {
+    final textTheme = _createTextTheme(colorScheme.brightness);
+    
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       primaryColor: colorScheme.primary,
-      textTheme: GoogleFonts.ralewayTextTheme(
-        colorScheme.brightness == Brightness.light
-            ? ThemeData.light().textTheme
-            : ThemeData.dark().textTheme,
-      ),
+      textTheme: textTheme,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       // Animation durations for consistent feel
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -121,6 +140,115 @@ class AppTheme {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
+      ),
+    );
+  }
+  
+  // Create standardized text theme with Material Design 3 typography scale
+  static TextTheme _createTextTheme(Brightness brightness) {
+    final baseTextTheme = brightness == Brightness.light
+        ? ThemeData.light().textTheme
+        : ThemeData.dark().textTheme;
+    
+    return GoogleFonts.ralewayTextTheme(baseTextTheme).copyWith(
+      // Display styles
+      displayLarge: GoogleFonts.raleway(
+        fontSize: displayLarge,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.25,
+        height: 1.12,
+      ),
+      displayMedium: GoogleFonts.raleway(
+        fontSize: displayMedium,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.16,
+      ),
+      displaySmall: GoogleFonts.raleway(
+        fontSize: displaySmall,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.22,
+      ),
+      
+      // Headline styles
+      headlineLarge: GoogleFonts.raleway(
+        fontSize: headlineLarge,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.25,
+      ),
+      headlineMedium: GoogleFonts.raleway(
+        fontSize: headlineMedium,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.29,
+      ),
+      headlineSmall: GoogleFonts.raleway(
+        fontSize: headlineSmall,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.33,
+      ),
+      
+      // Title styles
+      titleLarge: GoogleFonts.raleway(
+        fontSize: titleLarge,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+        height: 1.27,
+      ),
+      titleMedium: GoogleFonts.raleway(
+        fontSize: titleMedium,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.15,
+        height: 1.5,
+      ),
+      titleSmall: GoogleFonts.raleway(
+        fontSize: titleSmall,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.1,
+        height: 1.43,
+      ),
+      
+      // Body styles
+      bodyLarge: GoogleFonts.raleway(
+        fontSize: bodyLarge,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.5,
+        height: 1.5,
+      ),
+      bodyMedium: GoogleFonts.raleway(
+        fontSize: bodyMedium,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.25,
+        height: 1.43,
+      ),
+      bodySmall: GoogleFonts.raleway(
+        fontSize: bodySmall,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.4,
+        height: 1.33,
+      ),
+      
+      // Label styles
+      labelLarge: GoogleFonts.raleway(
+        fontSize: labelLarge,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.1,
+        height: 1.43,
+      ),
+      labelMedium: GoogleFonts.raleway(
+        fontSize: labelMedium,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.5,
+        height: 1.33,
+      ),
+      labelSmall: GoogleFonts.raleway(
+        fontSize: labelSmall,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.5,
+        height: 1.45,
       ),
     );
   }

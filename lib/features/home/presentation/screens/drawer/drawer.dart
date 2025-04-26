@@ -256,34 +256,19 @@ Widget _drawer({required BuildContext context, required authRepository}) {
           ),
           Column(
             children: [
-              ExpansionTile(
+              // Replaced ExpansionTile with a simple ListTile for About
+              ListTile(
                 leading: const Icon(Icons.info_outline),
-                title: const Text('App Info'),
-                children: [
-                  FutureBuilder<PackageInfo>(
-                    future: getAppMetadata(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      } else if (snapshot.hasData) {
-                        final packageInfo = snapshot.data!;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text('App Name: ${packageInfo.appName}'),
-                            Text('Version: ${packageInfo.version}'),
-                            Text('Build Number: ${packageInfo.buildNumber}'),
-                          ],
-                        );
-                      } else {
-                        return const Text('No app metadata available');
-                      }
-                    },
-                  )
-                ],
+                title: const Text('About'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutPage(),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 trailing: const Icon(Icons.logout),

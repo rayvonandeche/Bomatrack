@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bomatrack/core/theme/theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TenantDetailsPage extends StatelessWidget {
   final Tenant tenant;
@@ -1138,6 +1139,21 @@ class _TenantDetailsState extends State<TenantDetails> {
             ));
   }
 
+  // Function to make a phone call
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    try {
+      await launchUrl(launchUri);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not launch phone dialer: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1246,7 +1262,31 @@ class _TenantDetailsState extends State<TenantDetails> {
             ),
             const Divider(),
             _buildInfoRow(Icons.email, 'Email', widget.tenant.email ?? 'N/A'),
-            _buildInfoRow(Icons.phone, 'Phone', widget.tenant.phone),
+            Row(
+              children: [
+                Icon(Icons.phone, size: 20, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  'Phone: ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(widget.tenant.phone),
+                const Spacer(),
+                // Add call button
+                ElevatedButton.icon(
+                  onPressed: () => _makePhoneCall(widget.tenant.phone),
+                  icon: const Icon(Icons.call, size: 16),
+                  label: const Text('Call'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
             _buildInfoRow(
                 Icons.credit_card, 'ID Number', widget.tenant.idNumber),
             _buildInfoRow(Icons.contact_phone, 'Emergency Contact',

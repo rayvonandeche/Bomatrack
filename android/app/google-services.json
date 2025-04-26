@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "575162032573",
+    "project_id": "bomatrack",
+    "storage_bucket": "bomatrack.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:575162032573:android:45b933ca0da1ebd07132d4",
+        "android_client_info": {
+          "package_name": "ke.co.andeche.bomatrack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBm-ti91AXf1buKONZyf9rZZu4L880gYGY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

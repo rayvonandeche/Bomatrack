@@ -98,33 +98,84 @@ class PaymentsPage extends StatelessWidget {
                     onRefresh: () async {
                       context.read<HomeBloc>().add(LoadHome());
                     },
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        PaymentList(payments: pendingPayments),
-                      ],
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        // Check for scroll updates as we get closer to the bottom
+                        if (notification is ScrollUpdateNotification) {
+                          if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 300) {
+                            // Directly access the PaymentList's State
+                            final PaymentList? paymentList = notification.context?.findAncestorWidgetOfExactType<PaymentList>();
+                            if (paymentList != null) {
+                              // Find the state using the widget
+                              final state = context.findAncestorStateOfType<_PaymentListState>();
+                              state?._loadMoreItems();
+                            }
+                          }
+                        }
+                        return false;
+                      },
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          PaymentList(payments: pendingPayments),
+                        ],
+                      ),
                     ),
                   ),
                   RefreshIndicator(
                     onRefresh: () async {
                       context.read<HomeBloc>().add(LoadHome());
                     },
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        PaymentList(payments: paidPayments),
-                      ],
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        // Check for scroll updates as we get closer to the bottom
+                        if (notification is ScrollUpdateNotification) {
+                          if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 300) {
+                            // Directly access the PaymentList's State
+                            final PaymentList? paymentList = notification.context?.findAncestorWidgetOfExactType<PaymentList>();
+                            if (paymentList != null) {
+                              // Find the state using the widget
+                              final state = context.findAncestorStateOfType<_PaymentListState>();
+                              state?._loadMoreItems();
+                            }
+                          }
+                        }
+                        return false;
+                      },
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          PaymentList(payments: paidPayments, groupByField: 'paymentDate'),
+                        ],
+                      ),
                     ),
                   ),
                   RefreshIndicator(
                     onRefresh: () async {
                       context.read<HomeBloc>().add(LoadHome());
                     },
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        PaymentList(payments: overduePayments),
-                      ],
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        // Check for scroll updates as we get closer to the bottom
+                        if (notification is ScrollUpdateNotification) {
+                          if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 300) {
+                            // Directly access the PaymentList's State
+                            final PaymentList? paymentList = notification.context?.findAncestorWidgetOfExactType<PaymentList>();
+                            if (paymentList != null) {
+                              // Find the state using the widget
+                              final state = context.findAncestorStateOfType<_PaymentListState>();
+                              state?._loadMoreItems();
+                            }
+                          }
+                        }
+                        return false;
+                      },
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          PaymentList(payments: overduePayments),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -140,16 +191,67 @@ class PaymentsPage extends StatelessWidget {
 
 class PaymentList extends StatefulWidget {
   final List<Payment> payments;
+  final String? groupByField;  // Add this parameter to specify which field to group by
 
-  const PaymentList({super.key, required this.payments});
+  const PaymentList({
+    super.key, 
+    required this.payments,
+    this.groupByField,  // Optional parameter with null as default
+  });
 
   @override
   State<PaymentList> createState() => _PaymentListState();
 }
 
 class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClientMixin {
-  static const int _pageSize = 20;
+  static const int _pageSize = 40;  // Changed from 20 to 40
   int _currentPage = 0;
+  final ScrollController _scrollController = ScrollController();
+  bool _loadingMore = false;
+  bool _reachedEnd = false;  // Flag to track when we've reached the end of the list
+
+  @override
+  void initState() {
+    super.initState();
+    // We'll use NotificationListener instead of ScrollController.addListener 
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _loadMoreItems() {
+    // Check if we have more pages before attempting to load
+    if (!_loadingMore && _hasMorePages) {
+      setState(() {
+        _loadingMore = true;
+      });
+      
+      // Add a small delay to simulate loading
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          // Check if we've reached the end of the list
+          final nextStartIndex = (_currentPage + 1) * _pageSize;
+          
+          if (nextStartIndex >= widget.payments.length) {
+            // We've reached the end, no more data to load
+            setState(() {
+              _loadingMore = false;
+              // Set a flag to indicate we've reached the end
+              _reachedEnd = true;
+            });
+          } else {
+            setState(() {
+              _currentPage++;
+              _loadingMore = false;
+            });
+          }
+        }
+      });
+    }
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -172,7 +274,10 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
 
   Map<String, List<Payment>> _groupPaymentsByDate(List<Payment> payments) {
     return groupBy(payments, (Payment p) {
-      final date = p.dueDate;
+      // Use payment date for paid payments, and due date for others
+      final date = widget.groupByField == 'paymentDate' && p.paymentDate != null 
+          ? p.paymentDate! 
+          : p.dueDate;
       return '${date.year}-${date.month.toString().padLeft(2, '0')}';
     });
   }
@@ -212,26 +317,40 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          if (index == dateGroups.length && _hasMorePages) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (mounted) {
-                      setState(() {
-                        _currentPage++;
-                      });
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  ),
-                  child: const Text('Load More'),
+          if (index == dateGroups.length) {
+            if (_loadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(
+                  child: CircularProgressIndicator(),
                 ),
-              ),
-            );
+              );
+            } else if (_reachedEnd) {
+              // Show end of list indicator
+              return Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Center(
+                  child: Text(
+                    'End of list',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              );
+            } else if (_hasMorePages) {
+              return Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Center(
+                  child: TextButton(
+                    onPressed: _loadMoreItems,
+                    child: Text('Load more'),
+                  ),
+                ),
+              );
+            }
+            return null;
           }
 
           if (index >= dateGroups.length) return null;

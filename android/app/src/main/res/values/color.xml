@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-<color name="red">#FF0000</color>
+    <color name="red">#FF0000</color>
     <color name="green">#00FF00</color>
     <color name="blue">#0000FF</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="notification_color">#2196F3</color>
+    <color name="ic_launcher_background">#ffffff</color>
+
 </resources>

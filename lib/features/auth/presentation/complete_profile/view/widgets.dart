@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:bomatrack/config/config.dart';
+import 'package:bomatrack/core/config/config.dart';
 import 'package:bomatrack/features/auth/presentation/complete_profile/cubit/complete_profile_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -251,19 +251,6 @@ class _OrganizationInputState extends State<OrganizationInput> {
     _organizationController.dispose();
     _searchController.dispose();
     super.dispose();
-  }
-}
-
-// INPUTS
-class _NewOrgInput extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const TextField(
-        key: Key('new_org_input'),
-        decoration: InputDecoration(
-          labelText: 'New Organization',
-          hintText: 'Enter organization name',
-        ));
   }
 }
 

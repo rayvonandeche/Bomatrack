@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bomatrack/config/config.dart';
+import 'package:bomatrack/core/config/config.dart';
 import 'package:bomatrack/models/models.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -189,7 +189,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return;
       }
       
-      final currentState = state as HomeLoaded;
+      // final currentState = state as HomeLoaded;
       emit(HomeLoading());
       
       // Get user's organization ID
@@ -224,7 +224,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return;
       }
       
-      final currentState = state as HomeLoaded;
+      // final currentState = state as HomeLoaded;
       emit(HomeLoading());
       
       // Update the unit status

@@ -1,5 +1,6 @@
 import 'package:bomatrack/features/home/presentation/bloc/bloc.dart';
 import 'package:bomatrack/features/home/presentation/screens/tenant_details/tenant_details_page.dart';
+import 'package:bomatrack/features/home/presentation/screens/add_tenant/add_tenant_screen.dart';
 import 'package:bomatrack/models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -259,11 +260,14 @@ class _TenantsPageState extends State<TenantsPage> {
   }
   
   void _showAddTenantPrompt(BuildContext context) {
-    // This would navigate to your add tenant page
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Add tenant functionality coming soon'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+    // Navigate to the AddTenantScreen, passing the current HomeBloc
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: BlocProvider.of<HomeBloc>(context),
+          child: const AddTenantScreen(),
+        ),
       ),
     );
   }
@@ -574,7 +578,7 @@ class NoTenantsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _TenantsPageState()._showAddTenantPrompt(context),
                   icon: const Icon(Icons.person_add),
                   label: const Text('Add Tenant'),
                   style: ElevatedButton.styleFrom(
