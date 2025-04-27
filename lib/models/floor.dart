@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+/// Model representing a floor in a property
 class Floor extends  Equatable{
   final int id;
   final int propertyId;

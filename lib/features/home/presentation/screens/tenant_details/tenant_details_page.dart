@@ -1297,46 +1297,231 @@ class _TenantDetailsState extends State<TenantDetails> {
     );
   }
 
-  // Dummy Edit Modal
+  // Edit tenant information modal
   void _showEditModal(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    
+    // Controllers pre-populated with current tenant info
+    final firstNameController = TextEditingController(text: widget.tenant.firstName);
+    final lastNameController = TextEditingController(text: widget.tenant.lastName);
+    final emailController = TextEditingController(text: widget.tenant.email ?? '');
+    final phoneController = TextEditingController(text: widget.tenant.phone);
+    final idNumberController = TextEditingController(text: widget.tenant.idNumber);
+    final emergencyContactController = TextEditingController(text: widget.tenant.emergencyContact);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Edit Personal Information',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                // Add your form fields here
-                const TextField(
-                  decoration: InputDecoration(labelText: 'Email'),
-                ),
-                const TextField(
-                  decoration: InputDecoration(labelText: 'Phone'),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Edit functionality not implemented.'),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return BlocProvider.value(
+          value: BlocProvider.of<TenantDetailsPageBloc>(context),
+          child: BlocListener<TenantDetailsPageBloc, TenantDetailsPageState>(
+            listener: (context, state) {
+              if (state is TenantDetailsPageSuccess) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tenant information updated successfully'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                // Reload home data to reflect changes
+                context.read<HomeBloc>().add(LoadHome());
+              } else if (state is TenantDetailsPageError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${state.error}'),
+                    duration: Duration(seconds: 3),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: BlocBuilder<TenantDetailsPageBloc, TenantDetailsPageState>(
+              builder: (context, state) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Edit Personal Information',
+                                style: TextStyle(
+                                  fontSize: 18, 
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // First Name field
+                          TextFormField(
+                            controller: firstNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'First Name',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter first name';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Last Name field
+                          TextFormField(
+                            controller: lastNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Last Name',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter last name';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Email field
+                          TextFormField(
+                            controller: emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email (optional)',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                // Simple email validation
+                                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                if (!emailRegex.hasMatch(value)) {
+                                  return 'Please enter a valid email address';
+                                }
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Phone field
+                          TextFormField(
+                            controller: phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter phone number';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // ID Number field
+                          TextFormField(
+                            controller: idNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'ID Number',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter ID number';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Emergency Contact field
+                          TextFormField(
+                            controller: emergencyContactController,
+                            decoration: const InputDecoration(
+                              labelText: 'Emergency Contact',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter emergency contact';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Save button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: state is TenantDetailsPageLoading 
+                                ? null 
+                                : () {
+                                  if (formKey.currentState!.validate()) {
+                                    context.read<TenantDetailsPageBloc>().add(
+                                      EditTenantPressed(
+                                        tenantId: widget.tenant.id,
+                                        firstName: firstNameController.text.trim(),
+                                        lastName: lastNameController.text.trim(),
+                                        email: emailController.text.trim().isEmpty 
+                                          ? null 
+                                          : emailController.text.trim(),
+                                        phone: phoneController.text.trim(),
+                                        idNumber: idNumberController.text.trim(),
+                                        emergencyContact: emergencyContactController.text.trim(),
+                                      ),
+                                    );
+                                  }
+                                },
+                              child: state is TenantDetailsPageLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Save Changes'),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         );

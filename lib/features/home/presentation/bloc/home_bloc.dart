@@ -38,7 +38,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       _supabaseSubscription = stream.listen(
         (data) {
           if (!isClosed) {
-            add(HomeDataChanged(data, organization_id: organizationId));
+            add(HomeDataChanged(data, organizationId: organizationId));
           }
         },
         onError: (error) {
@@ -68,8 +68,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
                   : null;
 
       if (selectedProperty == null) {
-        emit(
-            HomeLoaded(event.data, const [], const [], const [], const [], const [], const [], selectedProperty: null));
+        emit(HomeLoaded(event.data, const [], const [], const [], const [],
+            const [], const [], const [],
+            selectedProperty: null));
         return;
       }
       // Fetch floors for the selected property (assuming selectedProperty has an 'id' field)
@@ -98,12 +99,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           .from('payments')
           .select()
           .eq('property_id', selectedProperty.id);
-          
+
       // Fetch tenant discount groups
       final discountGroups = await supabase
           .from('tenant_discount_groups')
           .select()
-          .eq('organization_id', event.organization_id);
+          .eq('organization_id', event.organizationId);
+
+      final activityEvents = await supabase
+          .from('activity_events')
+          .select()
+          .eq('property_id', selectedProperty.id);
 
       emit(HomeLoaded(
         event.data,
@@ -113,6 +119,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         unitTenancies,
         payments,
         discountGroups,
+        activityEvents,
         selectedProperty: selectedProperty,
       ));
     } on PostgrestException catch (e) {
@@ -151,14 +158,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             .from('payments')
             .select()
             .eq('property_id', event.property.id);
-            
+
+        final activityEvents = await supabase
+            .from('activity_events')
+            .select()
+            .eq('property_id', event.property.id);
+
         // Get the current organization ID from user metadata or another source
         final user = supabase.auth.currentUser;
         String organizationId = '';
         if (user != null && user.userMetadata != null) {
           organizationId = user.userMetadata?['organization'] as String? ?? '';
         }
-        
+
         // Fetch tenant discount groups
         final discountGroups = await supabase
             .from('tenant_discount_groups')
@@ -173,6 +185,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           unitTenancies,
           payments,
           discountGroups,
+          activityEvents,
           selectedProperty: event.property,
         ));
       } on PostgrestException catch (e) {
@@ -182,23 +195,23 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }
     }
   }
-  
+
   Future<void> _onAddUnit(AddUnit event, Emitter<HomeState> emit) async {
     try {
       if (state is! HomeLoaded) {
         return;
       }
-      
+
       // final currentState = state as HomeLoaded;
       emit(HomeLoading());
-      
+
       // Get user's organization ID
       final user = supabase.auth.currentUser;
       String organizationId = '';
       if (user != null && user.userMetadata != null) {
         organizationId = user.userMetadata?['organization'] as String? ?? '';
       }
-      
+
       // Create the new unit
       await supabase.from('units').insert({
         'floor_id': event.floorId,
@@ -207,34 +220,33 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         'organization_id': organizationId,
         'property_id': event.propertyId,
       });
-      
+
       // Reload the data
       add(LoadHome());
-      
     } on PostgrestException catch (e) {
       emit(HomeError(error: e.message));
     } catch (e) {
       emit(HomeError(error: e.toString()));
     }
   }
-  
-  Future<void> _onUpdateUnitStatus(UpdateUnitStatus event, Emitter<HomeState> emit) async {
+
+  Future<void> _onUpdateUnitStatus(
+      UpdateUnitStatus event, Emitter<HomeState> emit) async {
     try {
       if (state is! HomeLoaded) {
         return;
       }
-      
+
       // final currentState = state as HomeLoaded;
       emit(HomeLoading());
-      
+
       // Update the unit status
       await supabase.from('units').update({
         'status': event.newStatus,
       }).eq('id', event.unitId);
-      
+
       // Reload the data
       add(LoadHome());
-      
     } on PostgrestException catch (e) {
       emit(HomeError(error: e.message));
     } catch (e) {

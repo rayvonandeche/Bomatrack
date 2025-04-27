@@ -19,6 +19,7 @@ class TenantDetailsPageBloc
     on<AddUnitPressed>(_onAddUnitPressed);
     on<ChangeUnitPressed>(_onChangeUnitPressed);
     on<CreateBundledUnitsPressed>(_onCreateBundledUnitsPressed);
+    on<EditTenantPressed>(_onEditTenantPressed);
   }
 
   Future<void> _onAddPaymentPressed(
@@ -165,6 +166,29 @@ class TenantDetailsPageBloc
       emit(TenantDetailsPageSuccess());
     } catch (error) {
       log('Error creating bundled units: $error');
+      emit(TenantDetailsPageError(error: error.toString()));
+    }
+  }
+
+  Future<void> _onEditTenantPressed(
+      EditTenantPressed event, Emitter<TenantDetailsPageState> emit) async {
+    try {
+      emit(TenantDetailsPageLoading());
+
+      // Update the tenant information in the database
+      await _supabase.from('tenants').update({
+        'first_name': event.firstName,
+        'last_name': event.lastName,
+        'email': event.email,
+        'phone': event.phone,
+        'id_number': event.idNumber,
+        'emergency_contact': event.emergencyContact,
+      }).eq('id', event.tenantId);
+      
+      log('Tenant updated successfully: ${event.tenantId}');
+      emit(TenantDetailsPageSuccess());
+    } catch (error) {
+      log('Error updating tenant: $error');
       emit(TenantDetailsPageError(error: error.toString()));
     }
   }

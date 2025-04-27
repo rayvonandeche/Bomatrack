@@ -128,3 +128,34 @@ class CreateBundledUnitsPressed extends TenantDetailsPageEvent {
         startDate,
       ];
 }
+
+class EditTenantPressed extends TenantDetailsPageEvent {
+  final int tenantId;
+  final String firstName;
+  final String lastName;
+  final String? email;
+  final String phone;
+  final String idNumber;
+  final String emergencyContact;
+
+  const EditTenantPressed({
+    required this.tenantId,
+    required this.firstName,
+    required this.lastName,
+    this.email,
+    required this.phone,
+    required this.idNumber,
+    required this.emergencyContact,
+  });
+
+  @override
+  List<Object?> get props => [
+        tenantId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        idNumber,
+        emergencyContact,
+      ];
+}

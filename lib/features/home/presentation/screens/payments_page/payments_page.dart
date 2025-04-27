@@ -1,4 +1,5 @@
 import 'package:bomatrack/features/home/presentation/bloc/bloc.dart';
+import 'package:bomatrack/features/home/presentation/screens/tenant_details/tenant_details_page.dart';
 import 'package:bomatrack/models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -486,22 +487,28 @@ class PaymentListItem extends StatelessWidget {
       color: isPartial ? partialPaymentColor : Theme.of(context).colorScheme.surface,
       child: ListTile(
         onTap: () {
+          // Get the current HomeBloc instance from the context
+          final homeBloc = BlocProvider.of<HomeBloc>(context);
+          
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            builder: (context) => DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              minChildSize: 0.25,
-              maxChildSize: 0.95,
-              expand: false,
-              builder: (_, scrollController) => PaymentDetailsSheet(
-                payments: [payment],
-                tenantName: tenantName,
-                unitNumbers: hasMultipleUnits ? payment.description!.replaceAll('Units: ', '') : unit.unitNumber.toString(),
-                scrollController: scrollController,
+            builder: (context) => BlocProvider.value(
+              value: homeBloc, // Pass the HomeBloc to the bottom sheet
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.5,
+                minChildSize: 0.25,
+                maxChildSize: 0.95,
+                expand: false,
+                builder: (_, scrollController) => PaymentDetailsSheet(
+                  payments: [payment],
+                  tenantName: tenantName,
+                  unitNumbers: hasMultipleUnits ? payment.description!.replaceAll('Units: ', '') : unit.unitNumber.toString(),
+                  scrollController: scrollController,
+                ),
               ),
             ),
           );
@@ -619,38 +626,87 @@ class PaymentDetailsSheet extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
+              Text(
+                'Payment Details',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.person,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 18,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tenantName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      // Get the tenant and unit information from the HomeBloc
+                      final homeState = context.read<HomeBloc>().state;
+                      if (homeState is HomeLoaded) {
+                        // Get the tenant, units, and tenancies for this payment
+                        final payment = payments.first;
+                        final unitTenancy = homeState.unitTenancies
+                            .firstWhere((ut) => ut.id == payment.unitTenancyId);
+                        final tenant = homeState.tenants
+                            .firstWhere((t) => t.id == unitTenancy.tenantId);
+                        
+                        // Get all tenancies for this tenant
+                        final tenantTenancies = homeState.unitTenancies
+                            .where((ut) => ut.tenantId == tenant.id)
+                            .toList();
+                            
+                        // Get all units related to these tenancies
+                        final tenantUnits = tenantTenancies
+                            .map((ut) => homeState.units
+                                .firstWhere((u) => u.id == ut.unitId))
+                            .toList();
+                        
+                        // Navigate to tenant details page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BlocProvider.value(
+                              value: BlocProvider.of<HomeBloc>(context),
+                              child: TenantDetailsPage(
+                                tenant: tenant,
+                                units: tenantUnits,
+                                tenancies: tenantTenancies,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('View Tenant'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                tenantName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Unit: $unitNumbers',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Total Amount: ${NumberFormat.currency(symbol: 'Ksh').format(totalAmount)}',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.home_work,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text('Unit(s): $unitNumbers'),
+                ],
               ),
             ],
           ),
@@ -681,10 +737,6 @@ class PaymentDetailsSheet extends StatelessWidget {
                         _buildDetailRow('Payment Date', _formatDate(payment.paymentDate!)),
                       if (payment.paymentMethod != null)
                         _buildDetailRow('Method', payment.paymentMethod!.toUpperCase()),
-                      if (payment.referenceNumber != null)
-                        _buildDetailRow('Reference', payment.referenceNumber!),
-                      if (payment.description != null && payment.description!.isNotEmpty)
-                        _buildDetailRow('Description', payment.description!),
                     ],
                   ),
                 ),
@@ -717,15 +769,6 @@ class PaymentDetailsSheet extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return DateFormat('MMMM dd, yyyy').format(date);
-  }
-
-  String _capitalizeWords(String input) {
-    return input
-        .split(' ')
-        .map((word) => word.isNotEmpty
-            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-            : '')
-        .join(' ');
   }
 }
 
