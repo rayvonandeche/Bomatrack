@@ -90,10 +90,10 @@ class _NewTenantScreenState extends State<AddTenant> {
     return BlocListener<AddTenantBloc, AddTenantState>(
       listener: (context, state) {
         if (state is AddTenantSuccess) {
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Tenant added successfully')),
           );
-          Navigator.pop(context);
         } else if (state is AddTenantError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${state.error}')),

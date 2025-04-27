@@ -110,8 +110,8 @@ class _TenantDetailsState extends State<TenantDetails> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Unit added successfully.')),
                 );
-                // Reload home data
-                context.read<HomeBloc>().add(LoadHome());
+                // Remove manual data reload as real-time updates will handle it
+                // context.read<HomeBloc>().add(LoadHome());
               } else if (state is TenantDetailsPageError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${state.error}')),
@@ -323,8 +323,7 @@ class _TenantDetailsState extends State<TenantDetails> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Unit removed successfully.')),
                 );
-                // Reload home data
-                context.read<HomeBloc>().add(LoadHome());
+                // context.read<HomeBloc>().add(LoadHome());
               } else if (state is TenantDetailsPageError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${state.error}')),
@@ -490,8 +489,8 @@ class _TenantDetailsState extends State<TenantDetails> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Unit changed successfully.')),
                 );
-                // Reload home data
-                context.read<HomeBloc>().add(LoadHome());
+                // Remove manual data reload as real-time updates will handle it
+                // context.read<HomeBloc>().add(LoadHome());
               } else if (state is TenantDetailsPageError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${state.error}')),
@@ -1000,9 +999,6 @@ class _TenantDetailsState extends State<TenantDetails> {
                                                   description: description,
                                                 ),
                                               );
-                                          context
-                                              .read<HomeBloc>()
-                                              .add(LoadHome());
                                         }
                                       },
                                 child: state is TenantDetailsPageLoading
@@ -1129,7 +1125,8 @@ class _TenantDetailsState extends State<TenantDetails> {
                                     tenantId: tenantId,
                                   ),
                                 );
-                            context.read<HomeBloc>().add(LoadHome());
+                            // Remove manual data reload as real-time updates will handle it
+                            // context.read<HomeBloc>().add(LoadHome());
                           },
                           child: const Text('Remove')),
                     ],
@@ -1819,8 +1816,6 @@ class _TenantDetailsState extends State<TenantDetails> {
                   const SnackBar(
                       content: Text('Units bundle created successfully.')),
                 );
-                // Reload home data
-                context.read<HomeBloc>().add(LoadHome());
               } else if (state is TenantDetailsPageError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${state.error}')),

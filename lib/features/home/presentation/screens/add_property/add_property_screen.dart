@@ -52,12 +52,11 @@ class _NewPropertyScreenState extends State<AddProperty> {
     return BlocListener<AddPropertyBloc, AddPropertyState>(
       listener: (context, state) {
         if (state is AddPropertySuccess) {
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Property added successfully!'),
-            ),
+                content: Text('Property added successfully')),
           );
-          Navigator.pop(context);
         } else if (state is AddPropertyFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

@@ -1,6 +1,7 @@
 import 'package:bomatrack/features/home/presentation/bloc/bloc.dart';
 import 'package:bomatrack/features/home/presentation/screens/add_property/add_property_screen.dart';
 import 'package:bomatrack/features/home/presentation/screens/add_tenant/add_tenant_screen.dart';
+import 'package:bomatrack/features/home/presentation/widgets/recent_activity_section.dart';
 import 'package:flutter/material.dart';
 import 'package:bomatrack/shared/widgets/shimmer_loading.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -259,13 +260,6 @@ class HomePage extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Recent Activity',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -273,65 +267,7 @@ class HomePage extends StatelessWidget {
                 SliverPadding(
                   padding: const EdgeInsets.all(8.0),
                   sliver: SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.all(16.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12.0),
-                        border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outline
-                              .withOpacity(0.2),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.upcoming_outlined,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Coming Soon!',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Recent activity tracking will be available in the next update.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                            ),
-                            child: const Text('Learn More'),
-                          ),
-                        ],
-                      ),
-                    ),
+                    child: const RecentActivitySection(),
                   ),
                 ),
               ],

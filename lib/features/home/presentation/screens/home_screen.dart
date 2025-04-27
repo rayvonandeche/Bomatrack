@@ -40,7 +40,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomeScreen> {
+  // ignore: unused_field
   bool _notificationPermissionRequested = false;
+  // ignore: unused_field
   bool _notificationPermissionGranted = false;
   bool _isAppReady = false;
   bool _isHandlingDeepLink = false;
@@ -397,118 +399,111 @@ class _HomePageState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If we're not ready or handling a deep link, show loading state
-    if (!_isAppReady || _isHandlingDeepLink) {
-      return Scaffold(
-        backgroundColor: AppTheme.primaryColor,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                color: Colors.white,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Loading...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return BlocProvider(
-        create: (context) => HomeBloc()..add(LoadHome()),
-        child: PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) {
-            if (!didPop) {
-              SystemNavigator.pop();
-              return;
-            }
-          },
-          child: Scaffold(
-            appBar: AppBar(
-              systemOverlayStyle: SystemUiOverlayStyle.light,
-              backgroundColor: AppTheme.primaryColor,
-              scrolledUnderElevation: 0,
-              title: BlocBuilder<HomeBloc, HomeState>(
-                builder: (context, state) {
-                  if (state is HomeLoading) {
-                    return const ShimmerLoading(
-                      child: ShimmerContainer(
-                        height: 20,
-                        width: 100,
-                      ),
-                    );
-                  } else if (state is HomeLoaded && _currentIndex == 0) {
-                    return Text(state.selectedProperty?.name ?? 'Home');
-                  } else {
-                    return Text(_getTitle(_currentIndex));
-                  }
-                },
-              ),
-            ),
-            drawer: _drawer(
-                context: context, authRepository: widget._authRepository),
-            body: PageTransitionSwitcher(
-              transitionBuilder: (child, animation, secondaryAnimation) {
-                return FadeThroughTransition(
-                  animation: animation,
-                  secondaryAnimation: secondaryAnimation,
-                  child: child,
-                );
+      create: (context) => HomeBloc()..add(LoadHome()),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            SystemNavigator.pop();
+            return;
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: AppTheme.primaryColor,
+            scrolledUnderElevation: 0,
+            title: BlocBuilder<HomeBloc, HomeState>(
+              builder: (context, state) {
+                if (state is HomeLoading) {
+                  return const ShimmerLoading(
+                    child: ShimmerContainer(
+                      height: 20,
+                      width: 100,
+                    ),
+                  );
+                } else if (state is HomeLoaded && _currentIndex == 0) {
+                  return Text(state.selectedProperty?.name ?? 'Home');
+                } else {
+                  return Text(_getTitle(_currentIndex));
+                }
               },
-              child: _buildPage(_currentIndex),
             ),
-            bottomNavigationBar: Theme(
-                data: Theme.of(context).copyWith(
-                  bottomNavigationBarTheme: BottomNavigationBarThemeData(
-                    selectedItemColor: Theme.of(context).colorScheme.primary,
-                    unselectedItemColor:
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                    showSelectedLabels: true,
-                    showUnselectedLabels: true,
-                    type: BottomNavigationBarType.fixed,
-                    elevation: 8,
+          ),
+          drawer: _drawer(
+              context: context, authRepository: widget._authRepository),
+          body: _isAppReady && !_isHandlingDeepLink
+              ? PageTransitionSwitcher(
+                  transitionBuilder: (child, animation, secondaryAnimation) {
+                    return FadeThroughTransition(
+                      animation: animation,
+                      secondaryAnimation: secondaryAnimation,
+                      child: child,
+                    );
+                  },
+                  child: _buildPage(_currentIndex),
+                )
+              : Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: BottomNavigationBar(
-                    currentIndex: _currentIndex,
-                    onTap: (index) {
-                      setState(() {
-                        _currentIndex = index;
-                      });
-                    },
-                    items: const [
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.analytics_outlined),
-                        activeIcon: Icon(Icons.analytics),
-                        label: 'Home',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.home_work_outlined),
-                        activeIcon: Icon(Icons.home_work_rounded),
-                        label: 'Units',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.people_alt_outlined),
-                        activeIcon: Icon(Icons.people_alt_rounded),
-                        label: 'Tenants',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.payment_outlined),
-                        activeIcon: Icon(Icons.payment_rounded),
-                        label: 'Payments',
-                      ),
-                    ])),
-          ),
-        ));
+          bottomNavigationBar: Theme(
+              data: Theme.of(context).copyWith(
+                bottomNavigationBarTheme: BottomNavigationBarThemeData(
+                  selectedItemColor: Theme.of(context).colorScheme.primary,
+                  unselectedItemColor:
+                      Theme.of(context).colorScheme.onSurfaceVariant,
+                  showSelectedLabels: true,
+                  showUnselectedLabels: true,
+                  type: BottomNavigationBarType.fixed,
+                  elevation: 8,
+                ),
+              ),
+              child: BottomNavigationBar(
+                  currentIndex: _currentIndex,
+                  onTap: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.analytics_outlined),
+                      activeIcon: Icon(Icons.analytics),
+                      label: 'Home',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.home_work_outlined),
+                      activeIcon: Icon(Icons.home_work_rounded),
+                      label: 'Units',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.people_alt_outlined),
+                      activeIcon: Icon(Icons.people_alt_rounded),
+                      label: 'Tenants',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.payment_outlined),
+                      activeIcon: Icon(Icons.payment_rounded),
+                      label: 'Payments',
+                    ),
+                  ])),
+        ),
+      ),
+    );
   }
 }

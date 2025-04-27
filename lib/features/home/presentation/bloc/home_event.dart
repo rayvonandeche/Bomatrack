@@ -21,6 +21,16 @@ class HomeDataChanged extends HomeEvent {
   List<Property> get properties => data.map((e) => Property.fromJson(e)).toList();
 }
 
+class RealtimeTableUpdated extends HomeEvent {
+  final String tableName;
+  final List<Map<String, dynamic>> data;
+  
+  const RealtimeTableUpdated(this.tableName, this.data);
+  
+  @override
+  List<Object?> get props => [tableName, data];
+}
+
 class SelectProperty extends HomeEvent {
   final Property property;
 
@@ -56,5 +66,14 @@ class UpdateUnitStatus extends HomeEvent {
 
   @override
   List<Object?> get props => [unitId, newStatus];
+}
+
+class MarkActivityAsRead extends HomeEvent {
+  final int eventId;
+
+  const MarkActivityAsRead(this.eventId);
+
+  @override
+  List<Object?> get props => [eventId];
 }
 

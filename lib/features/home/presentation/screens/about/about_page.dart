@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class AboutPage extends StatelessWidget {
-  const AboutPage({Key? key}) : super(key: key);
+  const AboutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ class AboutPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       child: Image.asset(
                         'lib/assets/images/logo.png',
-                        scale: 2,
+                        width: 100,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -60,22 +60,22 @@ class AboutPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 40),
                     // Additional information
-                    ListTile(
-                      leading: const Icon(Icons.business),
-                      title: const Text('Company'),
-                      subtitle: const Text('BomaTrack Inc.'),
+                    const ListTile(
+                      leading: Icon(Icons.business),
+                      title: Text('Company'),
+                      subtitle: Text('BomaTrack Ltd.'),
                     ),
                     const Divider(),
-                    ListTile(
+                    const ListTile(
                       leading: const Icon(Icons.email),
                       title: const Text('Contact'),
-                      subtitle: const Text('support@bomatrack.com'),
+                      subtitle: const Text('support@bomatrack.andeche.co.ke'),
                     ),
                     const Divider(),
-                    ListTile(
+                    const ListTile(
                       leading: const Icon(Icons.web),
                       title: const Text('Website'),
-                      subtitle: const Text('www.bomatrack.com'),
+                      subtitle: const Text('www.bomatrack.andeche.co.ke'),
                     ),
                     const Divider(),
                     ListTile(
@@ -90,17 +90,17 @@ class AboutPage extends StatelessWidget {
                       onPressed: () {
                         showLicensePage(
                           context: context,
-                          applicationName: 'BomaTrack',
-                          applicationVersion: '1.0.0', // Your app version
-                          applicationIcon: Image.asset('assets/app_icon.png', height: 48, width: 48),
-                          applicationLegalese: '© 2023 Your Company Name',
+                          applicationName: packageInfo.appName,
+                          applicationVersion: '${packageInfo.version} (${packageInfo.buildNumber})',
+                          applicationIcon: Image.asset('lib/assets/images/logo.png', height: 96,),
+                          applicationLegalese: '© ${DateTime.now().year} BomaTrack Ltd. All rights reserved.',
                         );
                       },
                       child: const Text('Open Source Licenses'),
                     ),
                     const SizedBox(height: 40),
                     Text(
-                      '© ${DateTime.now().year} BomaTrack Inc. All rights reserved.',
+                      '© ${DateTime.now().year} BomaTrack Ltd. All rights reserved.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
