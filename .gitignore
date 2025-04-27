@@ -44,3 +44,4 @@ app.*.map.json
 
 
 /notification-learn/
+/supabase/functions/service-account.jdon

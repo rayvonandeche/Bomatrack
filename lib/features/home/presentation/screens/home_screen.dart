@@ -42,14 +42,40 @@ class HomeScreen extends StatefulWidget {
 class _HomePageState extends State<HomeScreen> {
   bool _notificationPermissionRequested = false;
   bool _notificationPermissionGranted = false;
+  bool _isAppReady = false;
+  bool _isHandlingDeepLink = false;
+  Map<String, dynamic>? _pendingNotificationData;
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    // Delay notification permission request to ensure UI loads properly first
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndRequestNotificationPermission();
+    // Initialize the app state
+    _initializeApp();
+  }
+  
+  Future<void> _initializeApp() async {
+    // Start with app not ready
+    setState(() {
+      _isAppReady = false;
     });
+    
+    // Initialize notification handlers first to capture any deep links
+    await _setupNotificationHandlers();
+    
+    // Then check notification permissions
+    await _checkAndRequestNotificationPermission();
+    
+    // Mark app as ready after initialization
+    setState(() {
+      _isAppReady = true;
+    });
+    
+    // Process any pending notification data after app is ready
+    if (_pendingNotificationData != null) {
+      _processDeepLink(_pendingNotificationData!);
+      _pendingNotificationData = null;
+    }
   }
 
   Future<void> _checkAndRequestNotificationPermission() async {
@@ -79,7 +105,7 @@ class _HomePageState extends State<HomeScreen> {
       });
     } else if (isGranted) {
       // If permission is granted, initialize FCM token storage
-      _initializeFcmTokenStorage();
+      await _initializeFcmTokenStorage();
     }
   }
 
@@ -131,7 +157,7 @@ class _HomePageState extends State<HomeScreen> {
     _markPermissionAsRequested(granted: granted);
 
     if (granted) {
-      _initializeFcmTokenStorage();
+      await _initializeFcmTokenStorage();
     } else {
       // Show a follow-up dialog explaining why notifications are important
       if (mounted) {
@@ -201,9 +227,6 @@ class _HomePageState extends State<HomeScreen> {
               'organization_id': user.userMetadata!['organization']
             });
           });
-
-          // Setup notification handlers
-          _setupNotificationHandlers();
         } catch (e) {
           debugPrint('Error storing FCM token: $e');
         }
@@ -211,7 +234,7 @@ class _HomePageState extends State<HomeScreen> {
     }
   }
 
-  void _setupNotificationHandlers() {
+  Future<void> _setupNotificationHandlers() async {
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
@@ -232,44 +255,113 @@ class _HomePageState extends State<HomeScreen> {
     });
 
     // Check for initial notification if the app was opened from terminated state
-    FirebaseMessaging.instance
-        .getInitialMessage()
-        .then((RemoteMessage? message) {
-      if (message != null) {
-        _handleNotificationData(message.data);
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      if (_isAppReady) {
+        _handleNotificationData(initialMessage.data);
+      } else {
+        // Store it temporarily if app isn't ready yet
+        _pendingNotificationData = initialMessage.data;
       }
-    });
+    }
 
     // Handle background notifications when app is opened
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleNotificationData(message.data);
+      if (_isAppReady) {
+        _handleNotificationData(message.data);
+      } else {
+        // Store it temporarily if app isn't ready yet
+        _pendingNotificationData = message.data;
+      }
     });
   }
 
   void _handleNotificationData(Map<String, dynamic> data) {
-    // Handle notification data based on type
+    // Set flag to indicate we're handling a deep link
+    setState(() {
+      _isHandlingDeepLink = true;
+      _pendingNotificationData = data;
+    });
+
+    // Process the deep link once the app is ready
+    if (_isAppReady) {
+      _processDeepLink(data);
+    }
+    // If app is not ready, it will be processed in _initializeApp once ready
+  }
+
+  void _processDeepLink(Map<String, dynamic> data) {
     final String? eventType = data['event_type'];
     final String? entityType = data['entity_type'];
     final String? entityId = data['entity_id'];
+    final String? clickAction = data['click_action'];
+
+    debugPrint('Processing deep link: $data');
 
     if (eventType != null && entityType != null && entityId != null) {
-      // Here you can navigate to specific screens based on notification type
-      // For example:
-      /*
-      if (entityType == 'payment') {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PaymentDetailsScreen(paymentId: entityId),
-        ));
-      } else if (entityType == 'tenant') {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => TenantDetailsScreen(tenantId: entityId),
-        ));
+      // Set the appropriate tab index based on the notification type
+      int targetIndex = 0;
+      
+      if (clickAction == 'VIEW_PAYMENT' || clickAction == 'VIEW_OVERDUE_PAYMENT') {
+        targetIndex = 3; // Payments tab
+      } else if (clickAction == 'VIEW_TENANT') {
+        targetIndex = 2; // Tenants tab
+      } else if (clickAction == 'VIEW_UNIT') {
+        targetIndex = 1; // Units tab
+      } else if (clickAction == 'VIEW_PROPERTY') {
+        targetIndex = 0; // Home/Property tab
       }
-      */
+
+      setState(() {
+        _currentIndex = targetIndex;
+        _isHandlingDeepLink = false;
+      });
+
+      // Now navigate to the specific entity detail screen
+      // This should be done after the tab has changed and UI has updated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToEntityDetails(entityType, entityId, data);
+      });
+    } else {
+      // If we don't have enough data, just clear the handling flag
+      setState(() {
+        _isHandlingDeepLink = false;
+      });
     }
   }
 
-  int _currentIndex = 0;
+  void _navigateToEntityDetails(String entityType, String entityId, Map<String, dynamic> data) {
+    // Navigate to the appropriate detail screen based on entity type
+    // For example:
+    switch (entityType) {
+      case 'payment':
+        // Example: Navigate to payment details
+        // Navigator.of(context).push(MaterialPageRoute(
+        //   builder: (_) => PaymentDetailsScreen(paymentId: int.parse(entityId)),
+        // ));
+        break;
+      case 'tenant':
+        // Example: Navigate to tenant details
+        // Navigator.of(context).push(MaterialPageRoute(
+        //   builder: (_) => TenantDetailsScreen(tenantId: int.parse(entityId)),
+        // ));
+        break;
+      case 'unit':
+        // Example: Navigate to unit details
+        // Navigator.of(context).push(MaterialPageRoute(
+        //   builder: (_) => UnitDetailsScreen(unitId: int.parse(entityId)),
+        // ));
+        break;
+      case 'property':
+        // Example: Navigate to property details
+        // Navigator.of(context).push(MaterialPageRoute(
+        //   builder: (_) => PropertyDetailsScreen(propertyId: int.parse(entityId)),
+        // ));
+        break;
+      default:
+        debugPrint('Unknown entity type: $entityType');
+    }
+  }
 
   Widget _buildPage(index) {
     switch (index) {
@@ -305,6 +397,32 @@ class _HomePageState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If we're not ready or handling a deep link, show loading state
+    if (!_isAppReady || _isHandlingDeepLink) {
+      return Scaffold(
+        backgroundColor: AppTheme.primaryColor,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                color: Colors.white,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Loading...',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return BlocProvider(
         create: (context) => HomeBloc()..add(LoadHome()),
         child: PopScope(
