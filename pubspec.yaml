@@ -1,7 +1,8 @@
 name: bomatrack
 description: "A Property Management App."
 publish_to: 'none'
-version: 2.2.8
+version: 2.3.11
+build_number: 457
 
 environment:
   sdk: ^3.5.3

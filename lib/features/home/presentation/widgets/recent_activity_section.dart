@@ -1,4 +1,5 @@
 import 'package:bomatrack/features/home/presentation/bloc/bloc.dart';
+import 'package:bomatrack/features/home/presentation/screens/notifications/notifications_screen.dart';
 import 'package:bomatrack/features/home/presentation/widgets/activity_event_item.dart';
 import 'package:bomatrack/models/models.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,10 @@ class RecentActivitySection extends StatelessWidget {
           return _buildEmptyActivityView(context);
         }
         
+        // Sort activity events by date in descending order
+        final sortedEvents = List<ActivityEvent>.from(activityEvents)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,7 +43,15 @@ class RecentActivitySection extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      // Navigate to full activity history
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider.value(
+                            value: BlocProvider.of<HomeBloc>(context),
+                            child: const NotificationsScreen(),
+                          ),
+                        ),
+                      );
                     },
                     child: const Text('View All'),
                   ),
@@ -61,10 +74,11 @@ class RecentActivitySection extends StatelessWidget {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: activityEvents.length > 5 ? 5 : activityEvents.length,
+                  itemCount: sortedEvents.length > 5 ? 5 : sortedEvents.length,
                   itemBuilder: (context, index) {
-                    final event = activityEvents[index];
+                    final event = sortedEvents[index];
                     return ActivityEventItem(
+                      key: ValueKey(event.id), // Add key for better widget updates
                       event: event,
                       onTap: () => _handleActivityTap(context, event),
                     );
@@ -124,51 +138,151 @@ class RecentActivitySection extends StatelessWidget {
       context.read<HomeBloc>().add(MarkActivityAsRead(event.id));
     }
 
-    // Navigate based on event type and entity
-    switch (event.entityType) {
-      case 'payment':
-        // Navigate to payment details
-        break;
-      case 'tenant':
-        // Navigate to tenant details
-        break;
-      case 'unit':
-        // Navigate to unit details
-        break;
-      case 'property':
-        // Navigate to property details
-        break;
-      default:
-        // Show details in a dialog
-        _showEventDetailsDialog(context, event);
-    }
+    // Always show the event details in a modal
+    _showEventDetailsDialog(context, event);
   }
 
   void _showEventDetailsDialog(BuildContext context, ActivityEvent event) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(event.title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(event.description),
-            const SizedBox(height: 16),
-            Text(
-              'Event Type: ${event.eventType}',
-              style: Theme.of(context).textTheme.bodySmall,
+            Icon(
+              _getEventIcon(event.eventType),
+              color: Theme.of(context).colorScheme.primary,
             ),
-            Text(
-              'Created: ${event.createdAt.toString()}',
-              style: Theme.of(context).textTheme.bodySmall,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                event.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
           ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                event.description,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Event Details',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      context,
+                      'Type',
+                      _getEventTypeLabel(event.eventType),
+                    ),
+                    _buildDetailRow(
+                      context,
+                      'Date',
+                      _formatDate(event.createdAt),
+                    ),
+                    if (event.entityId != null)
+                      _buildDetailRow(
+                        context,
+                        'Related to',
+                        event.entityType?.toUpperCase() ?? '',
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getEventIcon(String eventType) {
+    switch (eventType) {
+      case 'payment_received':
+        return Icons.payment;
+      case 'payment_overdue':
+        return Icons.warning;
+      case 'tenant_added':
+        return Icons.person_add;
+      case 'tenant_removed':
+        return Icons.person_off;
+      case 'unit_rented':
+        return Icons.home;
+      case 'unit_vacated':
+        return Icons.no_accounts;
+      case 'maintenance_request':
+        return Icons.build;
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  String _getEventTypeLabel(String eventType) {
+    switch (eventType) {
+      case 'payment_received':
+        return 'Payment Received';
+      case 'payment_overdue':
+        return 'Payment Overdue';
+      case 'tenant_added':
+        return 'New Tenant';
+      case 'tenant_removed':
+        return 'Tenant Removed';
+      case 'unit_rented':
+        return 'Unit Rented';
+      case 'unit_vacated':
+        return 'Unit Vacated';
+      case 'maintenance_request':
+        return 'Maintenance Request';
+      default:
+        return eventType.replaceAll('_', ' ').toUpperCase();
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ],
       ),

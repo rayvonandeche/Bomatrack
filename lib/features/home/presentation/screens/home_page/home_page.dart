@@ -182,77 +182,88 @@ class HomePage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            InkWell(
-                              radius: 18,
-                              onTap: () {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const AddPropertyScreen(),
-                                    ));
-                              },
-                              child: Card(
-                                elevation: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Icon(
-                                    Icons.add_home_work,
-                                    size: 38,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              radius: 18,
-                              onTap: () {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => BlocProvider.value(
-                                          value: BlocProvider.of<HomeBloc>(
-                                              context),
-                                          child: const AddTenantScreen()),
-                                    ));
-                              },
-                              child: Card(
-                                elevation: 2,
-                                child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
+                            Expanded(
+                              child: InkWell(
+                                radius: 18,
+                                onTap: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const AddPropertyScreen(),
+                                      ));
+                                },
+                                child: Card(
+                                  elevation: 2,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
                                     child: Icon(
-                                      Icons.group_add,
-                                      size: 38,
+                                      Icons.add_home_work,
+                                      size: 32,
                                       color: Theme.of(context).colorScheme.primary,
-                                    )),
-                              ),
-                            ),
-                            InkWell(
-                              radius: 18,
-                              onTap: () {},
-                              child: Card(
-                                elevation: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Icon(
-                                    Icons.post_add,
-                                    size: 38,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            InkWell(
-                              radius: 18,
-                              onTap: () {},
-                              child: Card(
-                                elevation: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Icon(
-                                    Icons.more_horiz,
-                                    size: 38,
-                                    color: Theme.of(context).colorScheme.primary,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                radius: 18,
+                                onTap: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => BlocProvider.value(
+                                            value: BlocProvider.of<HomeBloc>(
+                                                context),
+                                            child: const AddTenantScreen()),
+                                      ));
+                                },
+                                child: Card(
+                                  elevation: 2,
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Icon(
+                                        Icons.group_add,
+                                        size: 32,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      )),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                radius: 18,
+                                onTap: () {},
+                                child: Card(
+                                  elevation: 2,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Icon(
+                                      Icons.post_add,
+                                      size: 32,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                radius: 18,
+                                onTap: () {},
+                                child: Card(
+                                  elevation: 2,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Icon(
+                                      Icons.more_horiz,
+                                      size: 32,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -264,10 +275,10 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(8.0),
+                const SliverPadding(
+                  padding: EdgeInsets.all(8.0),
                   sliver: SliverToBoxAdapter(
-                    child: const RecentActivitySection(),
+                    child: RecentActivitySection(),
                   ),
                 ),
               ],

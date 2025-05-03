@@ -731,6 +731,7 @@ class PaymentDetailsSheet extends StatelessWidget {
                     children: [
                       _buildDetailRow('Payment ID', '#${payment.id}'),
                       _buildDetailRow('Amount', 'Ksh ${payment.amount}'),
+                      _buildDetailRow('Type', payment.description ?? 'Monthly Rent'),
                       _buildDetailRow('Status', payment.paymentStatus?.toUpperCase() ?? 'N/A'),
                       _buildDetailRow('Due Date', _formatDate(payment.dueDate)),
                       if (payment.paymentDate != null)

@@ -12,11 +12,15 @@ class LoadHome extends HomeEvent {}
 class HomeDataChanged extends HomeEvent {
   final List<Map<String, dynamic>> data;
   final String organizationId;
+  final List<Map<String, dynamic>> initialActivityEvents;
 
-  const HomeDataChanged(this.data, {this.organizationId = ''});
+  const HomeDataChanged(this.data, {
+    this.organizationId = '',
+    this.initialActivityEvents = const [],
+  });
 
   @override
-  List<Object?> get props => [data, organizationId];
+  List<Object?> get props => [data, organizationId, initialActivityEvents];
 
   List<Property> get properties => data.map((e) => Property.fromJson(e)).toList();
 }

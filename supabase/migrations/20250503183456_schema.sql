@@ -12,13 +12,70 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
-CREATE SCHEMA IF NOT EXISTS "public";
+CREATE EXTENSION IF NOT EXISTS "pg_cron" WITH SCHEMA "pg_catalog";
 
 
-ALTER SCHEMA "public" OWNER TO "pg_database_owner";
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgsodium";
+
+
+
+
 
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgjwt" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
 
 
 
@@ -943,6 +1000,154 @@ $$;
 ALTER FUNCTION "public"."change_tenant_unit"("p_tenant_id" integer, "p_old_unit_id" integer, "p_new_unit_id" integer, "p_monthly_rent" numeric, "p_start_date" "date") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."create_activity_event"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_title" "text", "p_description" "text", "p_requires_action" boolean DEFAULT false, "p_unit_id" integer DEFAULT NULL::integer, "p_tenant_id" integer DEFAULT NULL::integer, "p_data" "jsonb" DEFAULT NULL::"jsonb") RETURNS integer
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_organization_id UUID;
+    v_event_id INTEGER;
+BEGIN
+    -- Get organization ID from JWT
+    SELECT (auth.jwt() -> 'user_metadata' ->> 'organization')::UUID
+    INTO v_organization_id;
+
+    IF v_organization_id IS NULL THEN
+        RAISE EXCEPTION 'Organization ID not found in JWT token';
+    END IF;
+
+    -- Set configuration for current organization
+    PERFORM set_config('myapp.current_organization_id', v_organization_id::TEXT, TRUE);
+
+    -- Insert the activity event
+    INSERT INTO activity_events (
+        organization_id,
+        event_type,
+        entity_type,
+        entity_id,
+        property_id,
+        unit_id,
+        tenant_id,
+        title,
+        description,
+        data,
+        requires_action
+    ) VALUES (
+        v_organization_id,
+        p_event_type,
+        p_entity_type,
+        p_entity_id,
+        p_property_id,
+        p_unit_id,
+        p_tenant_id,
+        p_title,
+        p_description,
+        p_data,
+        p_requires_action
+    ) RETURNING id INTO v_event_id;
+
+    RETURN v_event_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_activity_event"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_title" "text", "p_description" "text", "p_requires_action" boolean, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."create_activity_event_with_org"("p_organization_id" "uuid", "p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_title" "text", "p_description" "text", "p_property_id" integer DEFAULT NULL::integer, "p_unit_id" integer DEFAULT NULL::integer, "p_tenant_id" integer DEFAULT NULL::integer, "p_data" "jsonb" DEFAULT NULL::"jsonb", "p_requires_action" boolean DEFAULT false) RETURNS integer
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_event_id INTEGER;
+BEGIN
+    -- Validate organization ID
+    IF p_organization_id IS NULL THEN
+        RAISE EXCEPTION 'Organization ID cannot be NULL';
+    END IF;
+
+    -- Debug: Log the organization ID
+    RAISE NOTICE 'Creating activity event for organization: %', p_organization_id;
+    
+    -- Set the organization ID in the configuration
+    PERFORM set_config('myapp.current_organization_id', p_organization_id::text, true);
+    
+    -- Insert the activity event
+    INSERT INTO activity_events (
+        organization_id,
+        event_type,
+        entity_type,
+        entity_id,
+        property_id,
+        unit_id,
+        tenant_id,
+        title,
+        description,
+        data,
+        requires_action
+    ) VALUES (
+        p_organization_id,
+        p_event_type,
+        p_entity_type,
+        p_entity_id,
+        p_property_id,
+        p_unit_id,
+        p_tenant_id,
+        p_title,
+        p_description,
+        p_data,
+        p_requires_action
+    ) RETURNING id INTO v_event_id;
+    
+    RETURN v_event_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_activity_event_with_org"("p_organization_id" "uuid", "p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_title" "text", "p_description" "text", "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb", "p_requires_action" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."create_activity_eventt"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_title" "text", "p_description" "text", "p_data" "jsonb", "p_requires_action" boolean, "p_organization_id" "uuid") RETURNS integer
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_event_id INTEGER;
+BEGIN
+    -- Use the provided organization_id
+    PERFORM set_config('myapp.current_organization_id', p_organization_id::text, true);
+
+    INSERT INTO activity_events (
+        event_type,
+        entity_type,
+        entity_id,
+        property_id,
+        unit_id,
+        tenant_id,
+        title,
+        description,
+        data,
+        requires_action,
+        organization_id
+    ) VALUES (
+        p_event_type,
+        p_entity_type,
+        p_entity_id,
+        p_property_id,
+        p_unit_id,
+        p_tenant_id,
+        p_title,
+        p_description,
+        p_data,
+        p_requires_action,
+        p_organization_id
+    ) RETURNING id INTO v_event_id;
+
+    RETURN v_event_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."create_activity_eventt"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_title" "text", "p_description" "text", "p_data" "jsonb", "p_requires_action" boolean, "p_organization_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."create_discounted_tenancy_group"("p_tenant_id" integer, "p_unit_ids" integer[], "p_discount_name" character varying, "p_discount_type" character varying, "p_discount_value" numeric, "p_monthly_rent" numeric, "p_start_date" "date" DEFAULT CURRENT_DATE) RETURNS integer
     LANGUAGE "plpgsql"
     AS $$
@@ -1505,6 +1710,69 @@ $$;
 ALTER FUNCTION "public"."fetch_properties"() OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."activity_events" (
+    "id" integer NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "event_type" character varying(50) NOT NULL,
+    "entity_type" character varying(50) NOT NULL,
+    "entity_id" integer NOT NULL,
+    "property_id" integer,
+    "unit_id" integer,
+    "tenant_id" integer,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "data" "jsonb",
+    "is_read" boolean DEFAULT false,
+    "requires_action" boolean DEFAULT false,
+    "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" timestamp with time zone
+);
+
+
+ALTER TABLE "public"."activity_events" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."fetch_recent_activity"("p_limit" integer DEFAULT 10, "p_property_id" integer DEFAULT NULL::integer) RETURNS SETOF "public"."activity_events"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_organization_id UUID;
+BEGIN
+    -- Get organization ID from JWT
+    SELECT (auth.jwt() -> 'user_metadata' ->> 'organization')::UUID
+    INTO v_organization_id;
+
+    IF v_organization_id IS NULL THEN
+        RAISE EXCEPTION 'Organization ID not found in JWT token';
+    END IF;
+
+    -- Set configuration for current organization
+    PERFORM set_config('myapp.current_organization_id', v_organization_id::TEXT, TRUE);
+
+    -- Return filtered activity events
+    IF p_property_id IS NULL THEN
+        RETURN QUERY
+        SELECT *
+        FROM activity_events
+        WHERE organization_id = v_organization_id
+        ORDER BY created_at DESC
+        LIMIT p_limit;
+    ELSE
+        RETURN QUERY
+        SELECT *
+        FROM activity_events
+        WHERE organization_id = v_organization_id
+          AND property_id = p_property_id
+        ORDER BY created_at DESC
+        LIMIT p_limit;
+    END IF;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."fetch_recent_activity"("p_limit" integer, "p_property_id" integer) OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."tenants" (
     "id" integer NOT NULL,
     "first_name" character varying(100) NOT NULL,
@@ -1719,6 +1987,219 @@ $$;
 
 
 ALTER FUNCTION "public"."get_tenant_discount_groups"("p_tenant_id" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."mark_activity_as_read"("p_event_ids" integer[]) RETURNS "void"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_organization_id UUID;
+BEGIN
+    -- Get organization ID from JWT
+    SELECT (auth.jwt() -> 'user_metadata' ->> 'organization')::UUID
+    INTO v_organization_id;
+
+    IF v_organization_id IS NULL THEN
+        RAISE EXCEPTION 'Organization ID not found in JWT token';
+    END IF;
+
+    -- Set configuration for current organization
+    PERFORM set_config('myapp.current_organization_id', v_organization_id::TEXT, TRUE);
+
+    -- Update the is_read status
+    UPDATE activity_events
+    SET is_read = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ANY(p_event_ids)
+      AND organization_id = v_organization_id;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."mark_activity_as_read"("p_event_ids" integer[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."notify_on_payment_add"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_unit_number TEXT;
+    v_tenant_name TEXT;
+    v_property_name TEXT;
+BEGIN
+    -- Only trigger when payment status changes to 'paid'
+    IF (TG_OP = 'INSERT' AND NEW.payment_status = 'paid') OR 
+       (TG_OP = 'UPDATE' AND OLD.payment_status IN ('pending', 'overdue') AND NEW.payment_status = 'paid') THEN
+        -- Get unit and tenant information
+        SELECT 
+            u.unit_number, 
+            p.name,
+            CONCAT(t.first_name, ' ', t.last_name)
+        INTO 
+            v_unit_number,
+            v_property_name, 
+            v_tenant_name
+        FROM unit_tenancy ut
+        JOIN units u ON ut.unit_id = u.id
+        JOIN tenants t ON ut.tenant_id = t.id
+        JOIN properties p ON u.property_id = p.id
+        WHERE ut.id = NEW.unit_tenancy_id;
+
+        -- Insert into activity_events
+        PERFORM create_activity_event(
+            p_event_type := 'payment_received',
+            p_entity_type := 'payment',
+            p_entity_id := NEW.id,
+            p_property_id := NEW.property_id,
+            p_unit_id := (SELECT unit_id FROM unit_tenancy WHERE id = NEW.unit_tenancy_id),
+            p_tenant_id := (SELECT tenant_id FROM unit_tenancy WHERE id = NEW.unit_tenancy_id),
+            p_title := 'Payment Received',
+            p_description := CONCAT('Payment of ', NEW.amount, ' received for Unit ', v_unit_number, ' from ', v_tenant_name),
+            p_data := jsonb_build_object(
+                'payment_amount', NEW.amount,
+                'payment_method', NEW.payment_method,
+                'reference_number', NEW.reference_number,
+                'unit_number', v_unit_number,
+                'tenant_name', v_tenant_name,
+                'property_name', v_property_name
+            )
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."notify_on_payment_add"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."notify_on_property_add"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    -- Insert into activity_events
+    PERFORM create_activity_event(
+        p_event_type := 'property_added',
+        p_entity_type := 'property',
+        p_entity_id := NEW.id,
+        p_property_id := NEW.id,
+        p_title := 'Property Added',
+        p_description := CONCAT('New property "', NEW.name, '" has been added at ', NEW.address),
+        p_data := jsonb_build_object(
+            'property_name', NEW.name,
+            'property_address', NEW.address,
+            'total_units', NEW.total_units
+        )
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."notify_on_property_add"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."notify_on_tenant_assignment"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_unit_number TEXT;
+    v_tenant_name TEXT;
+    v_property_name TEXT;
+BEGIN
+    -- Get unit and tenant information
+    SELECT 
+        u.unit_number, 
+        p.name,
+        CONCAT(t.first_name, ' ', t.last_name)
+    INTO 
+        v_unit_number,
+        v_property_name, 
+        v_tenant_name
+    FROM units u
+    JOIN tenants t ON NEW.tenant_id = t.id
+    JOIN properties p ON NEW.property_id = p.id
+    WHERE u.id = NEW.unit_id;
+
+    -- Insert into activity_events
+    PERFORM create_activity_event(
+        p_event_type := 'tenant_assigned',
+        p_entity_type := 'unit_tenancy',
+        p_entity_id := NEW.id,
+        p_property_id := NEW.property_id,
+        p_unit_id := NEW.unit_id,
+        p_tenant_id := NEW.tenant_id,
+        p_title := 'New Tenant Assigned',
+        p_description := CONCAT(v_tenant_name, ' has been assigned to Unit ', v_unit_number, ' at ', v_property_name),
+        p_data := jsonb_build_object(
+            'tenant_name', v_tenant_name,
+            'unit_number', v_unit_number,
+            'monthly_rent', NEW.monthly_rent,
+            'start_date', NEW.start_date,
+            'property_name', v_property_name
+        )
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."notify_on_tenant_assignment"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."notify_on_tenant_vacate"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    v_unit_number TEXT;
+    v_tenant_name TEXT;
+    v_property_name TEXT;
+BEGIN
+    -- Only trigger when status is changed to 'ended'
+    IF OLD.status = 'active' AND NEW.status = 'ended' THEN
+        -- Get unit and tenant information
+        SELECT 
+            u.unit_number, 
+            p.name,
+            CONCAT(t.first_name, ' ', t.last_name)
+        INTO 
+            v_unit_number,
+            v_property_name, 
+            v_tenant_name
+        FROM units u
+        JOIN tenants t ON NEW.tenant_id = t.id
+        JOIN properties p ON NEW.property_id = p.id
+        WHERE u.id = NEW.unit_id;
+
+        -- Insert into activity_events
+        PERFORM create_activity_event(
+            p_event_type := 'tenant_vacated',
+            p_entity_type := 'unit_tenancy',
+            p_entity_id := NEW.id,
+            p_property_id := NEW.property_id,
+            p_unit_id := NEW.unit_id,
+            p_tenant_id := NEW.tenant_id,
+            p_title := 'Tenant Vacated',
+            p_description := CONCAT(v_tenant_name, ' has vacated Unit ', v_unit_number, ' at ', v_property_name),
+            p_data := jsonb_build_object(
+                'tenant_name', v_tenant_name,
+                'unit_number', v_unit_number,
+                'end_date', NEW.end_date,
+                'property_name', v_property_name
+            ),
+            p_requires_action := true
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."notify_on_tenant_vacate"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."process_single_payment"("p_unit_tenancy_id" integer, "p_amount" numeric, "p_payment_date" "date", "p_payment_method" character varying, "p_reference_number" character varying, "p_description" "text", "p_pending_payment_id" integer) RETURNS integer
@@ -2222,20 +2703,108 @@ CREATE OR REPLACE FUNCTION "public"."update_overdue_payments"() RETURNS integer
     LANGUAGE "plpgsql"
     AS $$
 DECLARE
-  updated_count INTEGER;
+  updated_count INTEGER := 0;
+  org_id UUID;
+  v_unit_number TEXT;
+  v_tenant_name TEXT;
+  v_property_name TEXT;
+  v_payment RECORD;
+  v_org_count INTEGER;
 BEGIN
-  -- Update all pending payments whose due date has passed to 'overdue'
-  UPDATE payments
-  SET 
-    payment_status = 'overdue',
-    updated_at = CURRENT_TIMESTAMP
-  WHERE 
-    payment_status = 'pending' AND
-    due_date < CURRENT_DATE;
-    
-  GET DIAGNOSTICS updated_count = ROW_COUNT;
+  -- Debug: Log start of function
+  RAISE NOTICE 'Starting update_overdue_payments function';
   
-  RAISE NOTICE 'Updated % payments to overdue status', updated_count;
+  -- First, verify we have valid organization IDs
+  SELECT COUNT(DISTINCT organization_id)
+  INTO v_org_count
+  FROM payments 
+  WHERE payment_status = 'pending'
+    AND organization_id IS NOT NULL;
+    
+  RAISE NOTICE 'Found % organizations with pending payments', v_org_count;
+  
+  -- Process each organization separately
+  FOR org_id IN 
+    SELECT DISTINCT organization_id::UUID 
+    FROM payments 
+    WHERE payment_status = 'pending'
+      AND organization_id IS NOT NULL
+      AND organization_id::UUID IS NOT NULL
+  LOOP
+    -- Debug: Log the organization ID
+    RAISE NOTICE 'Processing organization: %', org_id;
+    
+    -- Verify the organization exists
+    IF NOT EXISTS (SELECT 1 FROM organizations WHERE id = org_id) THEN
+      RAISE NOTICE 'Organization % does not exist, skipping', org_id;
+      CONTINUE;
+    END IF;
+    
+    -- Update pending payments for this organization
+    UPDATE payments
+    SET 
+      payment_status = 'overdue',
+      updated_at = CURRENT_TIMESTAMP
+    WHERE 
+      payment_status = 'pending' AND
+      due_date < CURRENT_DATE AND
+      organization_id::UUID = org_id;
+      
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+    
+    -- Debug: Log update count
+    RAISE NOTICE 'Updated % payments to overdue status for organization %', updated_count, org_id;
+    
+    -- Create activity events for each updated payment
+    FOR v_payment IN 
+      SELECT p.*, 
+             u.unit_number,
+             CONCAT(t.first_name, ' ', t.last_name) as tenant_name,
+             prop.name as property_name
+      FROM payments p
+      JOIN unit_tenancy ut ON p.unit_tenancy_id = ut.id
+      JOIN units u ON ut.unit_id = u.id
+      JOIN tenants t ON ut.tenant_id = t.id
+      JOIN properties prop ON p.property_id = prop.id
+      WHERE p.payment_status = 'overdue'
+        AND p.updated_at = CURRENT_TIMESTAMP
+        AND p.organization_id::UUID = org_id
+        AND p.organization_id IS NOT NULL
+    LOOP
+      -- Debug: Log the payment details
+      RAISE NOTICE 'Creating activity event for payment: % (Org: %)', v_payment.id, org_id;
+      
+      -- Verify all required fields are present
+      IF v_payment.id IS NULL OR v_payment.property_id IS NULL OR 
+         v_payment.unit_tenancy_id IS NULL OR v_payment.amount IS NULL OR
+         v_payment.due_date IS NULL THEN
+        RAISE NOTICE 'Skipping payment % due to missing required fields', v_payment.id;
+        CONTINUE;
+      END IF;
+      
+      PERFORM create_activity_event_with_org(
+        p_organization_id := org_id,
+        p_event_type := 'payment_overdue',
+        p_entity_type := 'payment',
+        p_entity_id := v_payment.id,
+        p_property_id := v_payment.property_id,
+        p_unit_id := (SELECT unit_id FROM unit_tenancy WHERE id = v_payment.unit_tenancy_id),
+        p_tenant_id := (SELECT tenant_id FROM unit_tenancy WHERE id = v_payment.unit_tenancy_id),
+        p_title := 'Payment Overdue',
+        p_description := CONCAT('Payment of ', v_payment.amount, ' for Unit ', v_payment.unit_number, ' from ', v_payment.tenant_name, ' is overdue'),
+        p_data := jsonb_build_object(
+            'payment_amount', v_payment.amount,
+            'due_date', v_payment.due_date,
+            'days_overdue', (CURRENT_DATE - v_payment.due_date::date),
+            'unit_number', v_payment.unit_number,
+            'tenant_name', v_payment.tenant_name,
+            'property_name', v_payment.property_name
+        ),
+        p_requires_action := true
+      );
+    END LOOP;
+  END LOOP;
+  
   RETURN updated_count;
 END;
 $$;
@@ -2348,6 +2917,22 @@ $$;
 ALTER FUNCTION "public"."validate_tenant_payments"("p_tenant_id" integer, "p_pending_payment_ids" integer[]) OWNER TO "postgres";
 
 
+CREATE SEQUENCE IF NOT EXISTS "public"."activity_events_id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE "public"."activity_events_id_seq" OWNER TO "postgres";
+
+
+ALTER SEQUENCE "public"."activity_events_id_seq" OWNED BY "public"."activity_events"."id";
+
+
+
 CREATE SEQUENCE IF NOT EXISTS "public"."floor_id_seq"
     AS integer
     START WITH 1
@@ -2414,6 +2999,16 @@ ALTER TABLE "public"."payments_id_seq" OWNER TO "postgres";
 
 ALTER SEQUENCE "public"."payments_id_seq" OWNED BY "public"."payments"."id";
 
+
+
+CREATE TABLE IF NOT EXISTS "public"."profiles" (
+    "id" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "fcm_token" "text" NOT NULL,
+    "organization_id" "uuid"
+);
+
+
+ALTER TABLE "public"."profiles" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."property_id_seq"
@@ -2512,6 +3107,10 @@ ALTER SEQUENCE "public"."unit_tenancy_id_seq" OWNED BY "public"."unit_tenancy"."
 
 
 
+ALTER TABLE ONLY "public"."activity_events" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."activity_events_id_seq"'::"regclass");
+
+
+
 ALTER TABLE ONLY "public"."floors" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."floor_id_seq"'::"regclass");
 
 
@@ -2540,6 +3139,11 @@ ALTER TABLE ONLY "public"."units" ALTER COLUMN "id" SET DEFAULT "nextval"('"publ
 
 
 
+ALTER TABLE ONLY "public"."activity_events"
+    ADD CONSTRAINT "activity_events_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."floors"
     ADD CONSTRAINT "floor_pkey" PRIMARY KEY ("id");
 
@@ -2562,6 +3166,11 @@ ALTER TABLE ONLY "public"."organizations"
 
 ALTER TABLE ONLY "public"."payments"
     ADD CONSTRAINT "payment_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
 
 
 
@@ -2610,11 +3219,51 @@ ALTER TABLE ONLY "public"."unit_tenancy"
 
 
 
+CREATE INDEX "idx_activity_events_created_at" ON "public"."activity_events" USING "btree" ("created_at");
+
+
+
+CREATE INDEX "idx_activity_events_entity" ON "public"."activity_events" USING "btree" ("entity_type", "entity_id");
+
+
+
+CREATE INDEX "idx_activity_events_event_type" ON "public"."activity_events" USING "btree" ("event_type");
+
+
+
+CREATE INDEX "idx_activity_events_organization_id" ON "public"."activity_events" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "idx_activity_events_property_id" ON "public"."activity_events" USING "btree" ("property_id");
+
+
+
 CREATE OR REPLACE TRIGGER "after_tenant_delete" AFTER DELETE ON "public"."tenants" FOR EACH ROW EXECUTE FUNCTION "public"."set_unit_status_available"();
 
 
 
+CREATE OR REPLACE TRIGGER "on-activity-update" AFTER INSERT OR DELETE OR UPDATE ON "public"."activity_events" FOR EACH ROW EXECUTE FUNCTION "supabase_functions"."http_request"('https://iodfgbwsxgsiugbvfxbs.supabase.co/functions/v1/activity-notification', 'POST', '{"Content-type":"application/json"}', '{}', '1000');
+
+
+
+CREATE OR REPLACE TRIGGER "payment_notification_trigger" AFTER INSERT OR UPDATE ON "public"."payments" FOR EACH ROW EXECUTE FUNCTION "public"."notify_on_payment_add"();
+
+
+
+CREATE OR REPLACE TRIGGER "populate_organization_id" BEFORE INSERT ON "public"."activity_events" FOR EACH ROW EXECUTE FUNCTION "public"."set_organization_id"();
+
+
+
 CREATE OR REPLACE TRIGGER "populate_organization_id" BEFORE INSERT ON "public"."properties" FOR EACH ROW EXECUTE FUNCTION "public"."set_organization_id"();
+
+
+
+CREATE OR REPLACE TRIGGER "property_add_notification_trigger" AFTER INSERT ON "public"."properties" FOR EACH ROW EXECUTE FUNCTION "public"."notify_on_property_add"();
+
+
+
+CREATE OR REPLACE TRIGGER "tenant_assignment_notification_trigger" AFTER INSERT ON "public"."unit_tenancy" FOR EACH ROW EXECUTE FUNCTION "public"."notify_on_tenant_assignment"();
 
 
 
@@ -2626,7 +3275,15 @@ CREATE OR REPLACE TRIGGER "tenant_full_deletion_trigger" AFTER DELETE ON "public
 
 
 
+CREATE OR REPLACE TRIGGER "tenant_vacate_notification_trigger" AFTER UPDATE ON "public"."unit_tenancy" FOR EACH ROW EXECUTE FUNCTION "public"."notify_on_tenant_vacate"();
+
+
+
 CREATE OR REPLACE TRIGGER "units_update_trigger" AFTER INSERT OR DELETE OR UPDATE ON "public"."units" FOR EACH ROW EXECUTE FUNCTION "public"."update_available_units"();
+
+
+
+CREATE OR REPLACE TRIGGER "update_activity_events_modtime" BEFORE UPDATE ON "public"."activity_events" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
 
@@ -2659,6 +3316,16 @@ CREATE OR REPLACE TRIGGER "update_unit_status" AFTER DELETE ON "public"."tenants
 
 
 CREATE OR REPLACE TRIGGER "update_unit_tenancy_modtime" BEFORE UPDATE ON "public"."unit_tenancy" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+ALTER TABLE ONLY "public"."activity_events"
+    ADD CONSTRAINT "fk_activity_events_organization" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."activity_events"
+    ADD CONSTRAINT "fk_activity_events_property" FOREIGN KEY ("property_id") REFERENCES "public"."properties"("id") ON DELETE CASCADE;
 
 
 
@@ -2757,6 +3424,25 @@ ALTER TABLE ONLY "public"."unit_tenancy"
 
 
 
+CREATE POLICY "Allow delete on activity_events for organization" ON "public"."activity_events" FOR DELETE TO "authenticated" USING ((("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid") OR ("organization_id" = ("current_setting"('myapp.current_organization_id'::"text", true))::"uuid")));
+
+
+
+CREATE POLICY "Allow insert on activity_events for organization" ON "public"."activity_events" FOR INSERT TO "authenticated" WITH CHECK ((("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid") OR ("organization_id" = ("current_setting"('myapp.current_organization_id'::"text", true))::"uuid")));
+
+
+
+CREATE POLICY "Allow select on activity_events for organization" ON "public"."activity_events" FOR SELECT TO "authenticated" USING ((("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid") OR ("organization_id" = ("current_setting"('myapp.current_organization_id'::"text", true))::"uuid")));
+
+
+
+CREATE POLICY "Allow update on activity_events for organization" ON "public"."activity_events" FOR UPDATE TO "authenticated" USING ((("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid") OR ("organization_id" = ("current_setting"('myapp.current_organization_id'::"text", true))::"uuid"))) WITH CHECK ((("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid") OR ("organization_id" = ("current_setting"('myapp.current_organization_id'::"text", true))::"uuid")));
+
+
+
+ALTER TABLE "public"."activity_events" ENABLE ROW LEVEL SECURITY;
+
+
 CREATE POLICY "floor_organization_policy" ON "public"."floors" TO "authenticated" USING (("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid"));
 
 
@@ -2768,6 +3454,13 @@ ALTER TABLE "public"."payments" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "payments_organization_policy" ON "public"."payments" TO "authenticated" USING (("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid"));
+
+
+
+ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "profiles_organization_policy" ON "public"."profiles" USING (("organization_id" = ((("auth"."jwt"() -> 'user_metadata'::"text") ->> 'organization'::"text"))::"uuid"));
 
 
 
@@ -2799,10 +3492,243 @@ CREATE POLICY "units_organization_policy" ON "public"."units" USING (("organizat
 
 
 
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."activity_events";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."payments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."properties";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."tenants";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."unit_tenancy";
+
+
+
+
+
+
+
+
+
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2833,6 +3759,24 @@ GRANT ALL ON FUNCTION "public"."add_unit_to_tenant"("p_tenant_id" integer, "p_un
 GRANT ALL ON FUNCTION "public"."change_tenant_unit"("p_tenant_id" integer, "p_old_unit_id" integer, "p_new_unit_id" integer, "p_monthly_rent" numeric, "p_start_date" "date") TO "anon";
 GRANT ALL ON FUNCTION "public"."change_tenant_unit"("p_tenant_id" integer, "p_old_unit_id" integer, "p_new_unit_id" integer, "p_monthly_rent" numeric, "p_start_date" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."change_tenant_unit"("p_tenant_id" integer, "p_old_unit_id" integer, "p_new_unit_id" integer, "p_monthly_rent" numeric, "p_start_date" "date") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_activity_event"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_title" "text", "p_description" "text", "p_requires_action" boolean, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."create_activity_event"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_title" "text", "p_description" "text", "p_requires_action" boolean, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_activity_event"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_title" "text", "p_description" "text", "p_requires_action" boolean, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_activity_event_with_org"("p_organization_id" "uuid", "p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_title" "text", "p_description" "text", "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb", "p_requires_action" boolean) TO "anon";
+GRANT ALL ON FUNCTION "public"."create_activity_event_with_org"("p_organization_id" "uuid", "p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_title" "text", "p_description" "text", "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb", "p_requires_action" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_activity_event_with_org"("p_organization_id" "uuid", "p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_title" "text", "p_description" "text", "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_data" "jsonb", "p_requires_action" boolean) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."create_activity_eventt"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_title" "text", "p_description" "text", "p_data" "jsonb", "p_requires_action" boolean, "p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."create_activity_eventt"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_title" "text", "p_description" "text", "p_data" "jsonb", "p_requires_action" boolean, "p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_activity_eventt"("p_event_type" character varying, "p_entity_type" character varying, "p_entity_id" integer, "p_property_id" integer, "p_unit_id" integer, "p_tenant_id" integer, "p_title" "text", "p_description" "text", "p_data" "jsonb", "p_requires_action" boolean, "p_organization_id" "uuid") TO "service_role";
 
 
 
@@ -2908,6 +3852,18 @@ GRANT ALL ON FUNCTION "public"."fetch_properties"() TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."activity_events" TO "anon";
+GRANT ALL ON TABLE "public"."activity_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."activity_events" TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."fetch_recent_activity"("p_limit" integer, "p_property_id" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."fetch_recent_activity"("p_limit" integer, "p_property_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."fetch_recent_activity"("p_limit" integer, "p_property_id" integer) TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."tenants" TO "anon";
 GRANT ALL ON TABLE "public"."tenants" TO "authenticated";
 GRANT ALL ON TABLE "public"."tenants" TO "service_role";
@@ -2959,6 +3915,36 @@ GRANT ALL ON FUNCTION "public"."fetch_unitss"("prop_id" integer) TO "service_rol
 GRANT ALL ON FUNCTION "public"."get_tenant_discount_groups"("p_tenant_id" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."get_tenant_discount_groups"("p_tenant_id" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_tenant_discount_groups"("p_tenant_id" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."mark_activity_as_read"("p_event_ids" integer[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."mark_activity_as_read"("p_event_ids" integer[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."mark_activity_as_read"("p_event_ids" integer[]) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."notify_on_payment_add"() TO "anon";
+GRANT ALL ON FUNCTION "public"."notify_on_payment_add"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."notify_on_payment_add"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."notify_on_property_add"() TO "anon";
+GRANT ALL ON FUNCTION "public"."notify_on_property_add"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."notify_on_property_add"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_assignment"() TO "anon";
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_assignment"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_assignment"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_vacate"() TO "anon";
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_vacate"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."notify_on_tenant_vacate"() TO "service_role";
 
 
 
@@ -3058,6 +4044,33 @@ GRANT ALL ON FUNCTION "public"."validate_tenant_payments"("p_tenant_id" integer,
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GRANT ALL ON SEQUENCE "public"."activity_events_id_seq" TO "anon";
+GRANT ALL ON SEQUENCE "public"."activity_events_id_seq" TO "authenticated";
+GRANT ALL ON SEQUENCE "public"."activity_events_id_seq" TO "service_role";
+
+
+
 GRANT ALL ON SEQUENCE "public"."floor_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."floor_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."floor_id_seq" TO "service_role";
@@ -3079,6 +4092,12 @@ GRANT ALL ON TABLE "public"."payments" TO "service_role";
 GRANT ALL ON SEQUENCE "public"."payments_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."payments_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."payments_id_seq" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."profiles" TO "anon";
+GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
+GRANT ALL ON TABLE "public"."profiles" TO "service_role";
 
 
 
@@ -3142,6 +4161,30 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES  TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES  TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES  TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -50,7 +50,16 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // Get the initial properties data
       final propertiesData = await supabase.from('properties').select();
       
-      add(HomeDataChanged(propertiesData, organizationId: organizationId));
+      // Get initial activity events for all properties in the organization
+      final activityEvents = await supabase
+          .from('activity_events')
+          .select()
+          .eq('organization_id', organizationId)
+          .order('created_at', ascending: false);
+      
+      add(HomeDataChanged(propertiesData, 
+          organizationId: organizationId,
+          initialActivityEvents: activityEvents));
     } on PostgrestException catch (e) {
       emit(HomeError(error: e.message));
     } on RealtimeSubscribeException {
@@ -235,11 +244,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             break;
             
           case 'activity_events':
-            // Only update activity events for the current property
+            // Get activity events for both the organization and the selected property
+            final user = supabase.auth.currentUser;
+            String organizationId = user?.userMetadata?['organization'] as String? ?? '';
+            
             final updatedActivityEvents = await supabase
                 .from('activity_events')
                 .select()
-                .eq('property_id', selectedProperty.id);
+                .eq('organization_id', organizationId)
+                .order('created_at', ascending: false);
                 
             emit(HomeLoaded(
               currentState.data,
@@ -273,9 +286,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
                   : null;
 
       if (selectedProperty == null) {
-        emit(HomeLoaded(event.data, const [], const [], const [], const [],
-            const [], const [], const [],
-            selectedProperty: null));
+        emit(HomeLoaded(
+          event.data, 
+          const [], 
+          const [], 
+          const [], 
+          const [],
+          const [], 
+          const [], 
+          event.initialActivityEvents,
+          selectedProperty: null
+        ));
         return;
       }
       
@@ -322,6 +343,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           .select()
           .eq('organization_id', event.organizationId);
 
+      // Get activity events for the selected property
       final activityEvents = await supabase
           .from('activity_events')
           .select()
