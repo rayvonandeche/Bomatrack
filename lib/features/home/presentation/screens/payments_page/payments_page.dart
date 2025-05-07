@@ -77,20 +77,34 @@ class PaymentsPage extends StatelessWidget {
                 return ut.status.toLowerCase() == 'active' && (ut.endDate == null || ut.endDate!.isAfter(DateTime.now()));
               }
 
+              // For pending payments - ONLY show for active tenancies
               final pendingPayments = state.payments.where((p) {
-                final ut = state.unitTenancies.firstWhere((ut) => ut.id == p.unitTenancyId);
-                return p.paymentStatus == 'pending' && isTenancyActive(ut);
+                try {
+                  final ut = state.unitTenancies.firstWhere((ut) => ut.id == p.unitTenancyId);
+                  // Only include if status is pending AND tenancy is still active
+                  return p.paymentStatus == 'pending' && isTenancyActive(ut);
+                } catch (e) {
+                  return false;
+                }
               }).toList();
 
+              // For paid payments - show ALL (including ended tenancies)
               final paidPayments = state.payments
                   .where((p) =>
-                      p.paymentStatus == 'paid' ||
-                      p.paymentStatus == 'partial')
+                      (p.paymentStatus == 'paid' ||
+                      p.paymentStatus == 'partial') && 
+                      state.unitTenancies.any((ut) => ut.id == p.unitTenancyId))
                   .toList();
 
+              // For overdue payments - ONLY show for active tenancies
               final overduePayments = state.payments.where((p) {
-                final ut = state.unitTenancies.firstWhere((ut) => ut.id == p.unitTenancyId);
-                return p.paymentStatus == 'overdue' && isTenancyActive(ut);
+                try {
+                  final ut = state.unitTenancies.firstWhere((ut) => ut.id == p.unitTenancyId);
+                  // Only include if status is overdue AND tenancy is still active
+                  return p.paymentStatus == 'overdue' && isTenancyActive(ut);
+                } catch (e) {
+                  return false;
+                }
               }).toList();
 
               return TabBarView(
@@ -375,16 +389,24 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
               ...paymentsInGroup.map((payment) {
                 final state = context.read<HomeBloc>().state;
                 if (state is HomeLoaded) {
-                  final ut = state.unitTenancies.firstWhere((e) => e.id == payment.unitTenancyId);
-                  final tenant = state.tenants.firstWhere((e) => e.id == ut.tenantId);
-                  final unit = state.units.firstWhere((e) => e.id == ut.unitId);
+                  try {
+                    // Find the tenancy related to this payment
+                    final unitTenancy = state.unitTenancies.firstWhere((ut) => ut.id == payment.unitTenancyId);
+                    // Find the tenant using the tenancy, even if the tenancy is no longer active
+                    final tenant = state.tenants.firstWhere((e) => e.id == unitTenancy.tenantId);
+                    // Find the unit for this tenancy
+                    final unit = state.units.firstWhere((e) => e.id == unitTenancy.unitId);
 
-                  return PaymentListItem(
-                    key: ValueKey(payment.id),
-                    payment: payment,
-                    tenant: tenant,
-                    unit: unit,
-                  );
+                    return PaymentListItem(
+                      key: ValueKey(payment.id),
+                      payment: payment,
+                      tenant: tenant,
+                      unit: unit,
+                    );
+                  } catch (e) {
+                    // If we can't find the data, skip this payment
+                    return const SizedBox.shrink();
+                  }
                 }
                 return const SizedBox.shrink();
               }).toList(),
@@ -650,38 +672,44 @@ class PaymentDetailsSheet extends StatelessWidget {
                       // Get the tenant and unit information from the HomeBloc
                       final homeState = context.read<HomeBloc>().state;
                       if (homeState is HomeLoaded) {
-                        // Get the tenant, units, and tenancies for this payment
-                        final payment = payments.first;
-                        final unitTenancy = homeState.unitTenancies
-                            .firstWhere((ut) => ut.id == payment.unitTenancyId);
-                        final tenant = homeState.tenants
-                            .firstWhere((t) => t.id == unitTenancy.tenantId);
-                        
-                        // Get all tenancies for this tenant
-                        final tenantTenancies = homeState.unitTenancies
-                            .where((ut) => ut.tenantId == tenant.id)
-                            .toList();
-                            
-                        // Get all units related to these tenancies
-                        final tenantUnits = tenantTenancies
-                            .map((ut) => homeState.units
-                                .firstWhere((u) => u.id == ut.unitId))
-                            .toList();
-                        
-                        // Navigate to tenant details page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BlocProvider.value(
-                              value: BlocProvider.of<HomeBloc>(context),
-                              child: TenantDetailsPage(
-                                tenant: tenant,
-                                units: tenantUnits,
-                                tenancies: tenantTenancies,
+                        try {
+                          // Get the tenant, units, and tenancies for this payment
+                          final payment = payments.first;
+                          final unitTenancy = homeState.unitTenancies
+                              .firstWhere((ut) => ut.id == payment.unitTenancyId);
+                          final tenant = homeState.tenants
+                              .firstWhere((t) => t.id == unitTenancy.tenantId);
+                          
+                          // Get all tenancies for this tenant (both active and inactive)
+                          final tenantTenancies = homeState.unitTenancies
+                              .where((ut) => ut.tenantId == tenant.id)
+                              .toList();
+                              
+                          // Get all units related to these tenancies
+                          final tenantUnits = tenantTenancies
+                              .map((ut) => homeState.units
+                                  .firstWhere((u) => u.id == ut.unitId))
+                              .toList();
+                          
+                          // Navigate to tenant details page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: BlocProvider.of<HomeBloc>(context),
+                                child: TenantDetailsPage(
+                                  tenant: tenant,
+                                  units: tenantUnits,
+                                  tenancies: tenantTenancies,
+                                ),
                               ),
                             ),
-                          ),
-                        );
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Could not find tenant details')),
+                          );
+                        }
                       }
                     },
                     icon: const Icon(Icons.open_in_new, size: 16),
