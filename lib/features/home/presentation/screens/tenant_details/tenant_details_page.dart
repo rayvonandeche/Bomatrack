@@ -2277,6 +2277,14 @@ class _TenantDetailsState extends State<TenantDetails> {
     });
 
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    
+    // Create filtered payment lists for the tabs
+    final paidPayments = consolidatedPayments.where((p) => 
+      p.paymentStatus == 'paid' || p.paymentStatus == 'partial').toList();
+    final pendingPayments = consolidatedPayments.where((p) => 
+      p.paymentStatus == 'pending').toList();
+    final overduePayments = consolidatedPayments.where((p) => 
+      p.paymentStatus == 'overdue').toList();
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -2284,92 +2292,27 @@ class _TenantDetailsState extends State<TenantDetails> {
         borderRadius: BorderRadius.circular(12),
       ),
       elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Payment History',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(),
-            ...consolidatedPayments.map((payment) {
-              String statusText;
-              IconData statusIcon;
-              Color statusColor;
-              // ... (keep existing status logic) ...
-              if (payment.paymentStatus == 'partial') {
-                statusText = 'Partial Payment';
-                statusIcon = Icons.hourglass_bottom;
-                statusColor = Colors.yellow.shade800;
-              } else if (payment.paymentDate != null) {
-                statusText = 'Paid';
-                statusIcon = Icons.check;
-                statusColor = Colors.green;
-              } else {
-                statusText = "Pending Payment";
-                statusIcon = Icons.timelapse_outlined;
-                statusColor = Colors.orange;
-              }
-
-              bool isSecurityDeposit =
-                  payment.description?.toLowerCase().contains('deposit') ??
-                      false;
-              bool isMultipleUnits = // Keep this check for the title text
-                  payment.description?.contains('Multiple Units') ?? false;
-
-              return ListTile(
-                tileColor: isSecurityDeposit
-                    ? (isDarkTheme
-                        ? Colors.grey.shade800
-                        : Colors.grey.shade200)
-                    : null,
-                onTap: () => _showPaymentDetails(payment, isDarkTheme),
-                leading: CircleAvatar(
-                  backgroundColor: statusColor,
-                  // Updated icon logic: Use Icons.security for deposits,
-                  // otherwise use the statusIcon for all rent payments.
-                  child: Icon(
-                    isSecurityDeposit ? Icons.security : statusIcon,
-                    color: Colors.white, // Ensure icon color contrasts well
-                  ),
-                ),
-                title: Text(
-                  isSecurityDeposit ? ('Security Deposit') : ('Monthly Rent'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(statusText),
-                trailing: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      NumberFormat.currency(symbol: 'Ksh')
-                          .format(payment.amount),
-                      style: TextStyle(
-                        fontWeight: isMultipleUnits
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      payment.paymentDate != null
-                          ? DateFormat('MMMM dd, yyyy')
-                              .format(payment.paymentDate!)
-                          : DateFormat('MMMM dd, yyyy').format(payment.dueDate),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with count and expand/collapse functionality
+          PaymentHistoryHeader(
+            totalCount: consolidatedPayments.length,
+            paidCount: paidPayments.length,
+            pendingCount: pendingPayments.length,
+            overdueCount: overduePayments.length,
+          ),
+          
+          // Tabbed payment list
+          PaymentHistoryTabs(
+            allPayments: consolidatedPayments,
+            paidPayments: paidPayments,
+            pendingPayments: pendingPayments, 
+            overduePayments: overduePayments,
+            isDarkTheme: isDarkTheme,
+            onShowDetails: _showPaymentDetails,
+          ),
+        ],
       ),
     );
   }
@@ -2389,6 +2332,840 @@ class _TenantDetailsState extends State<TenantDetails> {
           ),
           Text(value),
         ],
+      ),
+    );
+  }
+}
+
+class PaymentHistoryHeader extends StatefulWidget {
+  final int totalCount;
+  final int paidCount;
+  final int pendingCount;
+  final int overdueCount;
+  
+  const PaymentHistoryHeader({
+    Key? key,
+    required this.totalCount,
+    required this.paidCount,
+    required this.pendingCount,
+    required this.overdueCount,
+  }) : super(key: key);
+
+  @override
+  State<PaymentHistoryHeader> createState() => _PaymentHistoryHeaderState();
+}
+
+class _PaymentHistoryHeaderState extends State<PaymentHistoryHeader> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _expanded = !_expanded;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Payment History',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.totalCount.toString(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                ),
+              ],
+            ),
+            if (_expanded) ...[
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPaymentStat('Paid', widget.paidCount, Colors.green),
+                    const SizedBox(width: 16),
+                    _buildPaymentStat('Pending', widget.pendingCount, Colors.orange),
+                    const SizedBox(width: 16),
+                    _buildPaymentStat('Overdue', widget.overdueCount, Colors.red),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentStat(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              count.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentHistoryTabs extends StatefulWidget {
+  final List<Payment> allPayments;
+  final List<Payment> paidPayments;
+  final List<Payment> pendingPayments;
+  final List<Payment> overduePayments;
+  final bool isDarkTheme;
+  final Function(Payment, bool) onShowDetails;
+
+  const PaymentHistoryTabs({
+    Key? key,
+    required this.allPayments,
+    required this.paidPayments,
+    required this.pendingPayments,
+    required this.overduePayments,
+    required this.isDarkTheme,
+    required this.onShowDetails,
+  }) : super(key: key);
+
+  @override
+  State<PaymentHistoryTabs> createState() => _PaymentHistoryTabsState();
+}
+
+class _PaymentHistoryTabsState extends State<PaymentHistoryTabs> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  static const int _initialItemsToShow = 5;
+  Map<int, int> _itemsToShow = {0: _initialItemsToShow, 1: _initialItemsToShow, 2: _initialItemsToShow, 3: _initialItemsToShow};
+  String _searchQuery = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+  
+  List<Payment> _filterPayments(List<Payment> payments) {
+    if (_searchQuery.isEmpty) return payments;
+    
+    return payments.where((payment) {
+      // Search by amount
+      final amountString = payment.amount.toString();
+      
+      // Search by date
+      final dueDate = DateFormat('yyyy-MM-dd').format(payment.dueDate);
+      final paymentDate = payment.paymentDate != null ? 
+          DateFormat('yyyy-MM-dd').format(payment.paymentDate!) : '';
+      
+      // Search by description
+      final description = payment.description?.toLowerCase() ?? '';
+      
+      // Search by status
+      final status = payment.paymentStatus?.toLowerCase() ?? '';
+      
+      return amountString.contains(_searchQuery) ||
+             dueDate.contains(_searchQuery) ||
+             paymentDate.contains(_searchQuery) ||
+             description.contains(_searchQuery.toLowerCase()) ||
+             status.contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search payments...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          TabBar(
+            controller: _tabController,
+            tabs: [
+              const Tab(text: 'All'),
+              Tab(text: 'Paid (${widget.paidPayments.length})'),
+              Tab(text: 'Pending (${widget.pendingPayments.length})'),
+              Tab(text: 'Overdue (${widget.overduePayments.length})'),
+            ],
+            labelColor: Theme.of(context).colorScheme.primary,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+            unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            indicatorSize: TabBarIndicatorSize.tab,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: (_itemsToShow[_tabController.index] ?? _initialItemsToShow) * 80.0,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPaymentsList(_filterPayments(widget.allPayments), 0),
+                _buildPaymentsList(_filterPayments(widget.paidPayments), 1),
+                _buildPaymentsList(_filterPayments(widget.pendingPayments), 2),
+                _buildPaymentsList(_filterPayments(widget.overduePayments), 3),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => PaymentHistoryFullPage(
+                    payments: widget.allPayments,
+                    onShowDetails: widget.onShowDetails,
+                    isDarkTheme: widget.isDarkTheme,
+                  ),
+                ),
+              );
+            },
+            child: const Text('View All Payment History'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentsList(List<Payment> payments, int tabIndex) {
+    final itemsToShow = _itemsToShow[tabIndex] ?? _initialItemsToShow;
+    final displayedPayments = payments.take(itemsToShow).toList();
+    
+    if (payments.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'No payments found',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: displayedPayments.length,
+            itemBuilder: (context, index) {
+              final payment = displayedPayments[index];
+              return _buildPaymentListItem(payment);
+            },
+          ),
+        ),
+        if (payments.length > itemsToShow)
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _itemsToShow[tabIndex] = itemsToShow + 5;
+              });
+            },
+            child: Text('Load More (${payments.length - itemsToShow} remaining)'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentListItem(Payment payment) {
+    String statusText;
+    IconData statusIcon;
+    Color statusColor;
+    
+    if (payment.paymentStatus == 'partial') {
+      statusText = 'Partial Payment';
+      statusIcon = Icons.hourglass_bottom;
+      statusColor = Colors.yellow.shade800;
+    } else if (payment.paymentDate != null) {
+      statusText = 'Paid';
+      statusIcon = Icons.check;
+      statusColor = Colors.green;
+    } else if (payment.paymentStatus == 'overdue') {
+      statusText = 'Overdue';
+      statusIcon = Icons.error_outline;
+      statusColor = Colors.red;
+    } else {
+      statusText = "Pending Payment";
+      statusIcon = Icons.timelapse_outlined;
+      statusColor = Colors.orange;
+    }
+
+    bool isSecurityDeposit = payment.description?.toLowerCase().contains('deposit') ?? false;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        tileColor: isSecurityDeposit
+            ? (widget.isDarkTheme ? Colors.grey.shade800 : Colors.grey.shade200)
+            : null,
+        onTap: () => widget.onShowDetails(payment, widget.isDarkTheme),
+        leading: CircleAvatar(
+          backgroundColor: statusColor,
+          child: Icon(
+            isSecurityDeposit ? Icons.security : statusIcon,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          isSecurityDeposit ? 'Security Deposit' : 'Monthly Rent',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${statusText} • ${DateFormat('MMM dd, yyyy').format(payment.paymentDate ?? payment.dueDate)}',
+          style: TextStyle(fontSize: 12, color: statusColor),
+        ),
+        trailing: Text(
+          NumberFormat.currency(symbol: 'Ksh').format(payment.amount),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PaymentHistoryFullPage extends StatefulWidget {
+  final List<Payment> payments;
+  final Function(Payment, bool) onShowDetails;
+  final bool isDarkTheme;
+  
+  const PaymentHistoryFullPage({
+    Key? key,
+    required this.payments,
+    required this.onShowDetails,
+    required this.isDarkTheme,
+  }) : super(key: key);
+
+  @override
+  State<PaymentHistoryFullPage> createState() => _PaymentHistoryFullPageState();
+}
+
+class _PaymentHistoryFullPageState extends State<PaymentHistoryFullPage> {
+  String _searchQuery = '';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String _selectedFilter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
+    // Filter payments based on search query and date range
+    final filteredPayments = widget.payments.where((payment) {
+      // Filter by search query
+      bool matchesSearch = true;
+      if (_searchQuery.isNotEmpty) {
+        final amountString = payment.amount.toString();
+        final dueDate = DateFormat('yyyy-MM-dd').format(payment.dueDate);
+        final paymentDate = payment.paymentDate != null ?
+            DateFormat('yyyy-MM-dd').format(payment.paymentDate!) : '';
+        final description = payment.description?.toLowerCase() ?? '';
+        final status = payment.paymentStatus?.toLowerCase() ?? '';
+        
+        matchesSearch = amountString.contains(_searchQuery) ||
+               dueDate.contains(_searchQuery) ||
+               paymentDate.contains(_searchQuery) ||
+               description.contains(_searchQuery.toLowerCase()) ||
+               status.contains(_searchQuery.toLowerCase());
+      }
+      
+      // Filter by date range
+      bool matchesDateRange = true;
+      final date = payment.paymentDate ?? payment.dueDate;
+      if (_startDate != null) {
+        matchesDateRange = matchesDateRange && date.isAfter(_startDate!);
+      }
+      if (_endDate != null) {
+        // Include the end date by adding a day
+        matchesDateRange = matchesDateRange && 
+            date.isBefore(_endDate!.add(const Duration(days: 1)));
+      }
+      
+      // Filter by payment status
+      bool matchesStatus = true;
+      if (_selectedFilter != 'All') {
+        switch (_selectedFilter) {
+          case 'Paid':
+            matchesStatus = payment.paymentStatus == 'paid' || 
+                payment.paymentStatus == 'partial';
+            break;
+          case 'Pending':
+            matchesStatus = payment.paymentStatus == 'pending';
+            break;
+          case 'Overdue':
+            matchesStatus = payment.paymentStatus == 'overdue';
+            break;
+        }
+      }
+      
+      return matchesSearch && matchesDateRange && matchesStatus;
+    }).toList();
+
+    // Group payments by month for better organization
+    final groupedPayments = <String, List<Payment>>{};
+    for (var payment in filteredPayments) {
+      final date = payment.paymentDate ?? payment.dueDate;
+      final monthYear = DateFormat('MMMM yyyy').format(date);
+      if (!groupedPayments.containsKey(monthYear)) {
+        groupedPayments[monthYear] = [];
+      }
+      groupedPayments[monthYear]!.add(payment);
+    }
+
+    // Sort the keys by date (most recent first)
+    final sortedMonths = groupedPayments.keys.toList()
+      ..sort((a, b) {
+        // Convert month name to date for comparison
+        final aDate = DateFormat('MMMM yyyy').parse(a);
+        final bDate = DateFormat('MMMM yyyy').parse(b);
+        return bDate.compareTo(aDate);
+      });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payment History'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterOptions,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search payments...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+          
+          // Active filters display
+          if (_startDate != null || _endDate != null || _selectedFilter != 'All')
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  if (_selectedFilter != 'All')
+                    _buildFilterChip(
+                      label: _selectedFilter,
+                      onRemove: () {
+                        setState(() {
+                          _selectedFilter = 'All';
+                        });
+                      },
+                    ),
+                  if (_startDate != null)
+                    _buildFilterChip(
+                      label: 'From: ${DateFormat('MMM dd, yyyy').format(_startDate!)}',
+                      onRemove: () {
+                        setState(() {
+                          _startDate = null;
+                        });
+                      },
+                    ),
+                  if (_endDate != null)
+                    _buildFilterChip(
+                      label: 'To: ${DateFormat('MMM dd, yyyy').format(_endDate!)}',
+                      onRemove: () {
+                        setState(() {
+                          _endDate = null;
+                        });
+                      },
+                    ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _searchQuery = '';
+                        _startDate = null;
+                        _endDate = null;
+                        _selectedFilter = 'All';
+                      });
+                    },
+                    child: const Text('Clear All'),
+                  ),
+                ],
+              ),
+            ),
+            
+          // Results count
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Text(
+                  '${filteredPayments.length} payments found',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const Spacer(),
+                // Add download/export button here if needed
+              ],
+            ),
+          ),
+          
+          // Payment list grouped by month
+          Expanded(
+            child: filteredPayments.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No payments match your filters',
+                      style: TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: sortedMonths.length,
+                    itemBuilder: (context, monthIndex) {
+                      final month = sortedMonths[monthIndex];
+                      final monthPayments = groupedPayments[month]!;
+                      
+                      return ExpansionTile(
+                        initiallyExpanded: monthIndex == 0, // Expand the most recent month
+                        title: Text(
+                          month,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Text('${monthPayments.length} payments'),
+                        children: monthPayments.map((payment) {
+                          return _buildPaymentListItem(payment);
+                        }).toList(),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFilterChip({required String label, required VoidCallback onRemove}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(label),
+        deleteIcon: const Icon(Icons.close, size: 16),
+        onDeleted: onRemove,
+      ),
+    );
+  }
+  
+  void _showFilterOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Filter Payments',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Payment Status', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: ['All', 'Paid', 'Pending', 'Overdue'].map((status) {
+                    return ChoiceChip(
+                      label: Text(status),
+                      selected: _selectedFilter == status,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setModalState(() {
+                            _selectedFilter = status;
+                          });
+                          setState(() {
+                            _selectedFilter = status;
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('Date Range', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(_startDate == null
+                            ? 'Start Date'
+                            : DateFormat('MMM dd, yyyy').format(_startDate!)),
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _startDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setModalState(() {
+                              _startDate = date;
+                            });
+                            setState(() {
+                              _startDate = date;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(_endDate == null
+                            ? 'End Date'
+                            : DateFormat('MMM dd, yyyy').format(_endDate!)),
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _endDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setModalState(() {
+                              _endDate = date;
+                            });
+                            setState(() {
+                              _endDate = date;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setModalState(() {
+                          _selectedFilter = 'All';
+                          _startDate = null;
+                          _endDate = null;
+                        });
+                        setState(() {
+                          _selectedFilter = 'All';
+                          _startDate = null;
+                          _endDate = null;
+                        });
+                      },
+                      child: const Text('Clear Filters'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  Widget _buildPaymentListItem(Payment payment) {
+    String statusText;
+    IconData statusIcon;
+    Color statusColor;
+    
+    if (payment.paymentStatus == 'partial') {
+      statusText = 'Partial Payment';
+      statusIcon = Icons.hourglass_bottom;
+      statusColor = Colors.yellow.shade800;
+    } else if (payment.paymentDate != null) {
+      statusText = 'Paid';
+      statusIcon = Icons.check;
+      statusColor = Colors.green;
+    } else if (payment.paymentStatus == 'overdue') {
+      statusText = 'Overdue';
+      statusIcon = Icons.error_outline;
+      statusColor = Colors.red;
+    } else {
+      statusText = "Pending Payment";
+      statusIcon = Icons.timelapse_outlined;
+      statusColor = Colors.orange;
+    }
+
+    bool isSecurityDeposit = payment.description?.toLowerCase().contains('deposit') ?? false;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        tileColor: isSecurityDeposit
+            ? (widget.isDarkTheme ? Colors.grey.shade800 : Colors.grey.shade200)
+            : null,
+        onTap: () => widget.onShowDetails(payment, widget.isDarkTheme),
+        leading: CircleAvatar(
+          backgroundColor: statusColor,
+          child: Icon(
+            isSecurityDeposit ? Icons.security : statusIcon,
+            color: Colors.white,
+          ),
+        ),
+        title: Text(
+          isSecurityDeposit ? 'Security Deposit' : 'Monthly Rent',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              statusText,
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('MMMM dd, yyyy').format(payment.paymentDate ?? payment.dueDate),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              NumberFormat.currency(symbol: 'Ksh').format(payment.amount),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            if (payment.paymentMethod != null)
+              Text(
+                payment.paymentMethod!.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
