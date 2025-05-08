@@ -88,13 +88,18 @@ class PaymentsPage extends StatelessWidget {
                 }
               }).toList();
 
-              // For paid payments - show ALL (including ended tenancies)
+              // For paid payments - Include ALL payments with status 'paid' or 'partial'
+              // Don't filter based on unit tenancy for paid payments to ensure all records show
               final paidPayments = state.payments
-                  .where((p) =>
-                      (p.paymentStatus == 'paid' ||
-                      p.paymentStatus == 'partial') && 
-                      state.unitTenancies.any((ut) => ut.id == p.unitTenancyId))
+                  .where((p) => p.paymentStatus == 'paid' || p.paymentStatus == 'partial')
                   .toList();
+                  
+              // Sort paid payments with most recent first
+              paidPayments.sort((a, b) {
+                final aDate = a.paymentDate ?? a.dueDate;
+                final bDate = b.paymentDate ?? b.dueDate;
+                return bDate.compareTo(aDate); // Sort descending (newest first)
+              });
 
               // For overdue payments - ONLY show for active tenancies
               final overduePayments = state.payments.where((p) {
@@ -106,6 +111,25 @@ class PaymentsPage extends StatelessWidget {
                   return false;
                 }
               }).toList();
+
+              // A payment would not be shown in pendingPayments if:
+              // 1. It doesn't have status 'pending'
+              // 2. The associated tenancy is not active (status != 'active' or endDate is in the past)
+              // 3. There's no matching unitTenancy found (throws exception in try-catch)
+              
+              // A payment would not be shown in paidPayments if:
+              // 1. Its status is not 'paid' or 'partial'
+              // 2. There's no matching unitTenancy in state.unitTenancies
+              // Note: .any() returns false if no matching tenancy is found instead of throwing an exception
+
+              // A payment would not be shown in overduePayments if:
+              // 1. It doesn't have status 'overdue'
+              // 2. The associated tenancy is not active (status != 'active' or endDate is in the past)
+              // 3. There's no matching unitTenancy found (throws exception in try-catch)
+              
+              // A payment might also not be displayed in a PaymentList widget if:
+              // 1. The PaymentList can't find the associated tenant or unit (fails in try-catch block)
+              // 2. The payment is beyond the current pagination limits
 
               return TabBarView(
                 children: [
@@ -289,10 +313,13 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
 
   Map<String, List<Payment>> _groupPaymentsByDate(List<Payment> payments) {
     return groupBy(payments, (Payment p) {
-      // Use payment date for paid payments, and due date for others
-      final date = widget.groupByField == 'paymentDate' && p.paymentDate != null 
-          ? p.paymentDate! 
+      // For paid section, we want to group by:
+      // - paymentDate for payments with status 'paid'
+      // - dueDate for payments with status 'partial' (since they might not have paymentDate)
+      final date = widget.groupByField == 'paymentDate' 
+          ? (p.paymentStatus == 'paid' && p.paymentDate != null ? p.paymentDate! : p.dueDate)
           : p.dueDate;
+      
       return '${date.year}-${date.month.toString().padLeft(2, '0')}';
     });
   }
@@ -391,11 +418,22 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
                 if (state is HomeLoaded) {
                   try {
                     // Find the tenancy related to this payment
-                    final unitTenancy = state.unitTenancies.firstWhere((ut) => ut.id == payment.unitTenancyId);
+                    final unitTenancy = state.unitTenancies.firstWhere(
+                      (ut) => ut.id == payment.unitTenancyId,
+                      orElse: () => null as UnitTenancy, // Will throw if not found
+                    );
+                    
                     // Find the tenant using the tenancy, even if the tenancy is no longer active
-                    final tenant = state.tenants.firstWhere((e) => e.id == unitTenancy.tenantId);
+                    final tenant = state.tenants.firstWhere(
+                      (e) => e.id == unitTenancy.tenantId,
+                      orElse: () => null as Tenant, // Will throw if not found
+                    );
+                    
                     // Find the unit for this tenancy
-                    final unit = state.units.firstWhere((e) => e.id == unitTenancy.unitId);
+                    final unit = state.units.firstWhere(
+                      (e) => e.id == unitTenancy.unitId,
+                      orElse: () => null as Unit, // Will throw if not found
+                    );
 
                     return PaymentListItem(
                       key: ValueKey(payment.id),
@@ -404,7 +442,11 @@ class _PaymentListState extends State<PaymentList> with AutomaticKeepAliveClient
                       unit: unit,
                     );
                   } catch (e) {
-                    // If we can't find the data, skip this payment
+                    // For payments without valid tenancy data, create a fallback display
+                    if (payment.paymentStatus == 'paid' || payment.paymentStatus == 'partial') {
+                      return FallbackPaymentListItem(payment: payment);
+                    }
+                    // For other payment types, skip
                     return const SizedBox.shrink();
                   }
                 }
@@ -861,6 +903,170 @@ class _ErrorScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class FallbackPaymentListItem extends StatelessWidget {
+  final Payment payment;
+
+  const FallbackPaymentListItem({
+    super.key,
+    required this.payment,
+  });
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'partial':
+        return 'Partial';
+      case 'paid':
+      default:
+        return 'Paid';
+    }
+  }
+
+  Color _getStatusColor(String status, BuildContext context) {
+    switch (status) {
+      case 'partial':
+        return Theme.of(context).colorScheme.secondary;
+      case 'paid':
+      default:
+        return Theme.of(context).colorScheme.primary;
+    }
+  }
+
+  Color _getPartialPaymentColor(BuildContext context) {
+    return Theme.of(context).colorScheme.secondaryContainer;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusText = _getStatusText(payment.paymentStatus!);
+    final statusColor = _getStatusColor(payment.paymentStatus!, context);
+    final isPartial = payment.paymentStatus == 'partial';
+    final partialPaymentColor = _getPartialPaymentColor(context);
+    
+    // Extract unit information from description if available
+    String unitInfo = 'Unit: Unknown';
+    if (payment.description != null) {
+      if (payment.description!.contains('Units:')) {
+        unitInfo = "Units: ${payment.description!.replaceAll('Units: ', '')}";
+      } else {
+        unitInfo = payment.description!;
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: isPartial ? 1 : 2,
+      color: isPartial ? partialPaymentColor : Theme.of(context).colorScheme.surface,
+      child: ListTile(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Payment Details',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Divider(),
+                  _buildDetailRow('Payment ID', '#${payment.id}'),
+                  _buildDetailRow('Amount', 'Ksh ${payment.amount}'),
+                  _buildDetailRow('Type', payment.description ?? 'Monthly Rent'),
+                  _buildDetailRow('Status', payment.paymentStatus?.toUpperCase() ?? 'N/A'),
+                  _buildDetailRow('Due Date', DateFormat('MMM dd, yyyy').format(payment.dueDate)),
+                  if (payment.paymentDate != null)
+                    _buildDetailRow('Payment Date', DateFormat('MMM dd, yyyy').format(payment.paymentDate!)),
+                  if (payment.paymentMethod != null)
+                    _buildDetailRow('Method', payment.paymentMethod!.toUpperCase()),
+                ],
+              ),
+            ),
+          );
+        },
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: statusColor.withOpacity(0.2),
+          child: Icon(
+            isPartial ? Icons.monetization_on_outlined : Icons.check_circle_outline,
+            color: statusColor,
+          ),
+        ),
+        title: Text(
+          'Payment #${payment.id}',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              unitInfo,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              statusText,
+              style: TextStyle(
+                color: statusColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        trailing: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              NumberFormat.currency(symbol: 'Ksh').format(payment.amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              payment.paymentDate != null
+                  ? DateFormat('MMM dd, yyyy').format(payment.paymentDate!)
+                  : DateFormat('MMM dd, yyyy').format(payment.dueDate),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
       ),
     );
   }
