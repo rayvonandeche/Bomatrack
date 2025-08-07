@@ -13,8 +13,9 @@
 
 ## 📸 Screenshots
 
-![WhatsApp Image 2025-08-07 at 17 55 35_ce170e12](https://github.com/user-attachments/assets/176b438a-b43e-4165-bec1-62936d20b5d7)
+![WhatsApp Image 2025-08-07 at 17 55 36_c04941d6](https://github.com/user-attachments/assets/42ca75b1-ec84-4bf7-a1da-74db812e61c5)
 
+![WhatsApp Image 2025-08-07 at 17 55 35_ce170e12](https://github.com/user-attachments/assets/176b438a-b43e-4165-bec1-62936d20b5d7)
 
 ## 🔧 Tech Stack
 
